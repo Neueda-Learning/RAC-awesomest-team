@@ -4,10 +4,13 @@ import com.rac.transactionmonitoring.dto.CreateTransactionRequest;
 import com.rac.transactionmonitoring.model.Transaction;
 import com.rac.transactionmonitoring.service.TransactionService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -46,5 +49,23 @@ public class TransactionController {
     public ResponseEntity<List<Transaction>> getByAccount(@RequestParam String accountId) {
         return ResponseEntity.ok(transactionService.getTransactionsByAccount(accountId));
     }
+
+    // GET /transactions/search?keyword=wire — 按描述关键词模糊搜索
+    @GetMapping("/search")
+    public ResponseEntity<List<Transaction>> searchByDescription(@RequestParam String keyword) {
+        return ResponseEntity.ok(transactionService.searchByDescription(keyword));
+    }
+
+    // GET /transactions/filter?minAmount=100&maxAmount=5000&from=2026-07-01T00:00:00&to=2026-07-31T23:59:59
+    // 按金额范围和/或日期区间筛选（参数都是可选的）
+    @GetMapping("/filter")
+    public ResponseEntity<List<Transaction>> filter(
+            @RequestParam(required = false) BigDecimal minAmount,
+            @RequestParam(required = false) BigDecimal maxAmount,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        return ResponseEntity.ok(transactionService.filterTransactions(minAmount, maxAmount, from, to));
+    }
+
 }
 
