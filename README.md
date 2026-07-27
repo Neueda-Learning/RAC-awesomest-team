@@ -43,7 +43,7 @@ POST http://localhost:8080/transactions
 }
 预期结果：
 交易被保存
-同时自动生成一个 HIGH 级别的告警（对应 "High Value Transaction" 规则）
+同时自动生成一个 LOW 级别的告警（对应 "High Value Transaction" 规则）
 
 测试场景 2：新收款方规则（NEW_PAYEE）
 目的：验证向从未出现过的收款方转账会触发告警
