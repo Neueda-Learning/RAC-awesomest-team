@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="UltimateRestHistory">
+    <items>
+      <historyItem>
+        <option name="timestamp" value="1785122982914" />
+        <request method="POST" url="http://localhost:8080/transactions" />
+      </historyItem>
+      <historyItem>
+        <option name="timestamp" value="1785122887302" />
+        <request method="POST" url="{   &quot;accountId&quot;: &quot;ACC-001&quot;,   &quot;payeeId&quot;: &quot;PAYEE-BANK&quot;,   &quot;amount&quot;: 15000,   &quot;transactionType&quot;: &quot;DEBIT&quot;,   &quot;description&quot;: &quot;High value wire transfer&quot; }" bodyType="none">
+          <bodyContent />
+        </request>
+      </historyItem>
+    </items>
+  </component>
+</project>
