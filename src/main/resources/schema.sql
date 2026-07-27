@@ -58,4 +58,19 @@ CREATE TABLE IF NOT EXISTS alert_status_history (
     CONSTRAINT fk_history_alert FOREIGN KEY (alert_id) REFERENCES alert (id)
 );
 
+-- 初始规则数据（仅在表为空时插入）
+INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
+SELECT 'High Value Transaction', 'AMOUNT_THRESHOLD', 'HIGH', TRUE, 10000.00, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'High Value Transaction');
 
+INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
+SELECT 'Rapid Transactions', 'VELOCITY', 'MEDIUM', TRUE, NULL, 10, 5
+WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'Rapid Transactions');
+
+INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
+SELECT 'New Payee', 'NEW_PAYEE', 'LOW', TRUE, NULL, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'New Payee');
+
+INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
+SELECT 'Daily Limit Exceeded', 'DAILY_LIMIT', 'HIGH', TRUE, 50000.00, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'Daily Limit Exceeded');
