@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS alert_status_history (
 
 -- 初始规则数据（仅在表为空时插入）
 INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
-SELECT 'High Value Transaction', 'AMOUNT_THRESHOLD', 'HIGH', TRUE, 10000.00, NULL, NULL
+SELECT 'High Value Transaction', 'AMOUNT_THRESHOLD', 'LOW', TRUE, 10000.00, NULL, NULL
 WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'High Value Transaction');
 
 INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
@@ -74,3 +74,10 @@ WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'New Payee');
 INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshold_value, time_window_minutes, max_count)
 SELECT 'Daily Limit Exceeded', 'DAILY_LIMIT', 'HIGH', TRUE, 50000.00, NULL, NULL
 WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'Daily Limit Exceeded');
+
+-- 统一默认告警等级（对已存在规则也生效）
+UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'AMOUNT_THRESHOLD';
+UPDATE monitoring_rule SET severity = 'MEDIUM' WHERE rule_type = 'VELOCITY';
+UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'NEW_PAYEE';
+UPDATE monitoring_rule SET severity = 'HIGH' WHERE rule_type = 'DAILY_LIMIT';
+
