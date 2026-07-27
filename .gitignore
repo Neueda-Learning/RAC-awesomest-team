@@ -1,0 +1,30 @@
+# Maven build output
+/target/
+
+# IntelliJ IDEA
+/.idea/
+/*.iml
+/out/
+
+# If you want to share code style / inspections / run configs, keep these:
+#!/.idea/codeStyles/
+/!/.idea/inspectionProfiles/
+/!/.idea/runConfigurations/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Crash / JVM diagnostic files
+hs_err_pid*
+replay_pid*
+
+# Env / secrets (按你项目情况启用)
+.env
+.env.*
+application-local.properties
+application-dev.properties
