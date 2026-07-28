@@ -100,8 +100,6 @@ public class RuleEngineService {
     }
 
     private boolean checkNewPayee(Transaction tx) {
-    // 规则3：向从未出现过的收款方转账
-    private boolean evaluateNewPayee(Transaction tx, MonitoringRule rule) {
         if (tx.getPayeeId() == null || tx.getPayeeId().isBlank()) {
             return false;
         }
