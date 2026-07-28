@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-27  
 **File Fixed:** `backend/src/main/resources/static/rule_engine.html`  
-**Author:** Rule Engine Module (Member B)
+
+
 
 ---
 
@@ -232,10 +233,10 @@ $r | ForEach-Object { Write-Output "$($_.id) $($_.ruleName) active=$($_.active)"
 ```
 ✅ 正确：http://localhost:8080/rule_engine.html
 ❌ 错误：file:///C:/RAC-awesomest-team/backend/src/main/resources/static/rule_engine.html
+
 ```
 
 直接用 `file://` 打开会因为浏览器 CORS 安全策略导致 fetch 请求失败。
-
 
 ---
 
@@ -272,5 +273,4 @@ $r | ForEach-Object { Write-Output "$($_.id) $($_.ruleName) active=$($_.active)"
 - 现象：规则新增请求 `POST /rules` 可能返回 500。
 - 已处理：在 `backend/src/main/java/com/example/monitoring/rule/service/RuleService.java` 的 `createRule` 中补充 `createdAt/updatedAt` 默认时间戳初始化。
 - 说明：该问题与本报告的前端字段名修复不同，属于后端插入数据完整性问题，二者都需要保留记录。
-
 

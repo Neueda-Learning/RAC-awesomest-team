@@ -75,7 +75,11 @@ INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshol
 SELECT 'Daily Limit Exceeded', 'DAILY_LIMIT', 'HIGH', TRUE, 50000.00, NULL, NULL
 WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'Daily Limit Exceeded');
 
+<<<<<<< HEAD:backend/target/classes/schema.sql
 -- 确保所有规则的 severity 与规则类型保持一致
+=======
+-- 统一默认告警等级（对已存在规则也生效）
+>>>>>>> origin/main:target/classes/schema.sql
 UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'AMOUNT_THRESHOLD';
 UPDATE monitoring_rule SET severity = 'MEDIUM' WHERE rule_type = 'VELOCITY';
 UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'NEW_PAYEE';
