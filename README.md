@@ -1,94 +1,237 @@
-mysql workbench所需操作：
-运行这行代码来创建数据库：CREATE DATABASE IF NOT EXISTS transaction_monitoring CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-运行这3行代码来创建用户并授权：
+# RAC Awesomest Team - Transaction Monitoring System
+
+## Overview
+This project is a Spring Boot based transaction monitoring system with rule evaluation and alert lifecycle management.
+
+When a transaction is created, the system evaluates active monitoring rules and automatically generates alerts for matched conditions.
+
+## Current Features
+
+### Backend Modules
+- Transaction management (`/transactions`)
+- Rule management (`/rules`)
+- Alert management (`/alerts`)
+- Rule engine with automatic alert generation
+
+### Implemented Rule Types
+- `AMOUNT_THRESHOLD`: triggers when a single transaction exceeds a threshold
+- `VELOCITY`: triggers when transaction count exceeds limit in a time window
+- `NEW_PAYEE`: triggers on first transfer to a payee from an account
+- `DAILY_LIMIT`: triggers when daily total exceeds a threshold
+
+### Alert Lifecycle
+- `OPEN -> ACKNOWLEDGED`
+- `ACKNOWLEDGED -> INVESTIGATING`
+- `ACKNOWLEDGED/INVESTIGATING -> CLOSED`
+- `ACKNOWLEDGED/INVESTIGATING -> DISMISSED`
+
+### Test Data Generation
+- Built-in API to generate mock transactions
+- Configurable amount range and `createdAt` distribution
+- Supports fixed step intervals or ranged distribution to avoid identical timestamps
+
+### Unit Tests
+- Service-level unit tests for Transaction, Rule, and Alert modules
+- Mockito + JUnit 5 based tests
+
+## Tech Stack
+- Java 17
+- Spring Boot 3.3.5
+- Spring Data JDBC
+- MySQL
+- Maven
+
+## Project Structure
+```text
+RAC-awesomest-team/
+|- backend/
+|  |- src/main/java/com/example/monitoring/
+|  |  |- transaction/
+|  |  |- rule/
+|  |  |- alert/
+|  |  |- common/
+|  |- src/main/resources/
+|  |  |- application.properties
+|  |  |- schema.sql
+|  |  |- static/
+|  |     |- transactions.html
+|  |     |- rule_engine.html
+|  |     |- alerts.html
+|  |- src/test/java/com/example/monitoring/
+|- documents/
+|- frontend/ (reserved for future standalone frontend)
+```
+
+## Prerequisites
+- JDK 17
+- Maven 3.9+
+- MySQL 8+
+
+## Database Setup
+Run the following SQL in MySQL:
+
+```sql
+CREATE DATABASE IF NOT EXISTS transaction_monitoring CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'apppass';
 GRANT ALL PRIVILEGES ON transaction_monitoring.* TO 'appuser'@'localhost';
 FLUSH PRIVILEGES;
+```
 
+Default connection settings are in `backend/src/main/resources/application.properties`:
+- database: `transaction_monitoring`
+- username: `appuser`
+- password: `apppass`
 
+## Run the Application
 
-第一阶段 — 最小可用版本
-Step 1: Transaction（交易）
-→ 创建 Model / Repository / Service / Controller
-→ 实现 POST /transactions（提交一笔交易）
-→ 实现 GET /transactions（查看所有交易）
+From the `backend` directory:
 
-Step 2: MonitoringRule（监控规则）
-→ 创建对应的四层代码
-→ 先在数据库插入几条硬编码规则
-→ 实现 GET /rules（查看规则）
+```powershell
+Set-Location "C:\Users\Administrator\Desktop\RAC-awesomest-team\backend"
+mvn spring-boot:run
+```
 
-Step 3: Alert + 规则引擎
-→ 每次提交交易时，自动对所有启用的规则进行判断
-→ 如果触发规则，自动创建 Alert 记录
+By default, the backend starts at `http://localhost:8080`.
 
-Step 4: Alert 生命周期管理
-→ PATCH /alerts/{id}/acknowledge
-→ PATCH /alerts/{id}/investigate
-→ PATCH /alerts/{id}/close
-→ PATCH /alerts/{id}/dismiss
+## Static Debug Pages
+After backend startup, you can open:
+- `http://localhost:8080/transactions.html`
+- `http://localhost:8080/rule_engine.html`
+- `http://localhost:8080/alerts.html`
 
+## API Overview
 
+### Transactions
+- `POST /transactions` - create a transaction
+- `GET /transactions` - list all transactions
+- `GET /transactions/{id}` - get transaction by id
+- `GET /transactions?accountId=ACC-001` - query by account
+- `GET /transactions/search?keyword=wire` - search by description
+- `GET /transactions/filter?minAmount=100&maxAmount=1000&from=...&to=...` - filter by amount/time
+- `POST /transactions/generate` - generate mock transactions
 
-测试场景 1：金额阈值规则（AMOUNT_THRESHOLD）
-目的：验证单笔交易超过 10000 时触发告警
-POST http://localhost:8080/transactions
+### Rules
+- `GET /rules`
+- `GET /rules/{id}`
+- `POST /rules`
+- `PUT /rules/{id}`
+- `DELETE /rules/{id}`
 
+### Alerts
+- `GET /alerts`
+- `GET /alerts?status=OPEN`
+- `GET /alerts/{id}`
+- `GET /alerts/{id}/history`
+- `PATCH /alerts/{id}/acknowledge`
+- `PATCH /alerts/{id}/investigate`
+- `PATCH /alerts/{id}/close`
+- `PATCH /alerts/{id}/dismiss`
+
+## Mock Data Generation
+
+### Basic
+```powershell
+curl -X POST "http://localhost:8080/transactions/generate?count=100"
+```
+
+### Controlled amount range and fixed timestamp step
+```powershell
+curl -X POST "http://localhost:8080/transactions/generate?count=20&minAmount=100&maxAmount=500&startAt=2026-07-28T10:00:00&stepSeconds=120"
+```
+
+### Controlled amount range and timestamp range
+```powershell
+curl -X POST "http://localhost:8080/transactions/generate?count=20&minAmount=100&maxAmount=500&startAt=2026-07-28T10:00:00&endAt=2026-07-28T11:00:00"
+```
+
+Supported query params:
+- `count` (default `100`)
+- `minAmount`
+- `maxAmount`
+- `startAt` (ISO-8601 datetime)
+- `endAt` (ISO-8601 datetime)
+- `stepSeconds`
+
+## Run Unit Tests
+
+From the `backend` directory:
+
+```powershell
+Set-Location "C:\Users\Administrator\Desktop\RAC-awesomest-team\backend"
+mvn test
+```
+
+Current test coverage includes:
+- `TransactionServiceTest`
+- `RuleServiceTest`
+- `AlertServiceTest`
+
+## Example Rule Validation Scenarios
+
+### 1) Amount Threshold
+Send a transaction with amount greater than `10000`:
+
+```json
 {
-"accountId": "ACC-001",
-"payeeId": "PAYEE-BANK",
-"amount": 15000,
-"transactionType": "DEBIT",
-"description": "High value wire transfer"
+  "accountId": "ACC-001",
+  "payeeId": "PAYEE-BANK",
+  "amount": 15000,
+  "transactionType": "DEBIT",
+  "description": "High value wire transfer"
 }
-预期结果：
-交易被保存
-同时自动生成一个 LOW 级别的告警（对应 "High Value Transaction" 规则）
+```
 
-测试场景 2：新收款方规则（NEW_PAYEE）
-目的：验证向从未出现过的收款方转账会触发告警
-POST http://localhost:8080/transactions
+Expected: transaction is saved and an alert is generated.
 
+### 2) New Payee
+Send a first transfer to a new payee:
+
+```json
 {
-"accountId": "ACC-002",
-"payeeId": "PAYEE-UNKNOWN-NEW",
-"amount": 500,
-"transactionType": "DEBIT",
-"description": "Payment to new vendor"
+  "accountId": "ACC-002",
+  "payeeId": "PAYEE-UNKNOWN-NEW",
+  "amount": 500,
+  "transactionType": "DEBIT",
+  "description": "Payment to new vendor"
 }
-预期结果：
-交易被保存
-自动生成一个 LOW 级别的告警（对应 "New Payee" 规则）
+```
 
-测试场景 3：频率规则（VELOCITY）
-目的：验证 10 分钟内多笔交易超过 5 笔时触发告警
-快速发送这个请求 6 次以上（间隔几秒钟）：
-POST http://localhost:8080/transactions
+Expected: transaction is saved and a new payee alert is generated.
 
-{
-"accountId": "ACC-003",
-"payeeId": "PAYEE-FAST",
-"amount": 100,
-"transactionType": "DEBIT",
-"description": "Rapid transaction"
-}
-预期结果：
-前 5 笔：正常保存，不触发告警
-第 6 笔及以后：触发 MEDIUM 级别的告警（对应 "Rapid Transactions" 规则）
+### 3) Velocity
+Send more than 5 transactions within the configured time window for the same account.
 
-测试场景 4：每日限额规则（DAILY_LIMIT）
-目的：验证同一账户当日累计金额超过 50000 时触发告警
-连续发送多笔交易（每笔金额> 10000，累计> 50000）：
-POST http://localhost:8080/transactions
+Expected: velocity alerts appear after threshold crossing.
 
-{
-"accountId": "ACC-004",
-"payeeId": "PAYEE-HIGH",
-"amount": 20000,
-"transactionType": "DEBIT",
-"description": "Large daily transfer 1"
-}
-重复发送 3 次（总计 60000），第 3 笔会触发测试
-预期结果：
-前两笔：可能触发金额阈值告警
-第三笔：额外触发 HIGH 级别的每日限额告警
+### 4) Daily Limit
+Send multiple large transactions in one day for the same account so the daily total exceeds configured limit.
+
+Expected: daily limit alert is generated.
+
+## Troubleshooting
+
+### Port still occupied after stopping app
+- Use IDE `Stop` on the actual running process (not only close the tool window)
+- If started via terminal, stop with `Ctrl + C`
+- Graceful shutdown is enabled in `application.properties`
+
+### Java version mismatch
+If you see `release version XX not supported`, verify Maven runtime:
+
+```powershell
+mvn -v
+java -version
+```
+
+Ensure Maven uses JDK 17 for this project.
+
+## Additional Project Docs
+- `documents/unittest_and_db_data_generation.md`
+- `documents/port_release_troubleshooting.md`
+- `documents/7.27项目重构.md`
+
+## Contribution Notes
+- Do not push directly to `main`
+- Work in feature branches and open Pull Requests
+- Keep build outputs out of Git (`target/` is ignored)

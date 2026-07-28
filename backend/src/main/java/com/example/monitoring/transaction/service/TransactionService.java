@@ -2,16 +2,35 @@ package com.example.monitoring.transaction.service;
 
 import com.example.monitoring.rule.service.RuleEngineService;
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
+import com.example.monitoring.transaction.dto.GenerateTransactionsRequest;
 import com.example.monitoring.transaction.entity.Transaction;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class TransactionService {
+
+    private static final BigDecimal DEFAULT_MIN_AMOUNT = new BigDecimal("10.00");
+    private static final BigDecimal DEFAULT_MAX_AMOUNT = new BigDecimal("25000.00");
+    private static final int DEFAULT_STEP_SECONDS = 60;
+
+    private static final String[] TRANSACTION_TYPES = {"DEBIT", "CREDIT"};
+    private static final String[] DESCRIPTIONS = {
+            "ATM withdrawal",
+            "Online shopping",
+            "Wire transfer",
+            "Utility payment",
+            "Subscription renewal"
+    };
 
     private final TransactionRepository transactionRepository;
     private final RuleEngineService ruleEngineService;
@@ -26,6 +45,10 @@ public class TransactionService {
      * 提交一笔交易，保存后自动触发规则引擎评估
      */
     public Transaction createTransaction(CreateTransactionRequest request) {
+        return createTransaction(request, LocalDateTime.now());
+    }
+
+    public Transaction createTransaction(CreateTransactionRequest request, LocalDateTime createdAt) {
         Transaction transaction = new Transaction(
                 request.getAccountId(),
                 request.getPayeeId(),
@@ -33,7 +56,7 @@ public class TransactionService {
                 request.getCurrency() != null ? request.getCurrency() : "USD",
                 request.getTransactionType(),
                 request.getDescription(),
-                LocalDateTime.now()
+                createdAt
         );
         Transaction saved = transactionRepository.save(transaction);
 
@@ -88,5 +111,126 @@ public class TransactionService {
         } else {
             return getAllTransactions();
         }
+    }
+
+    /**
+     * 自动生成测试交易数据（会触发规则评估并可能生成告警）。
+     */
+    public List<Transaction> generateMockTransactions(int count) {
+        GenerateTransactionsRequest request = new GenerateTransactionsRequest();
+        request.setCount(count);
+        return generateMockTransactions(request);
+    }
+
+    public List<Transaction> generateMockTransactions(GenerateTransactionsRequest request) {
+        GenerateTransactionsRequest options = request != null ? request : new GenerateTransactionsRequest();
+        int count = options.getCount() != null ? options.getCount() : 100;
+        validateGenerateRequest(options, count);
+
+        BigDecimal minAmount = options.getMinAmount() != null ? options.getMinAmount() : DEFAULT_MIN_AMOUNT;
+        BigDecimal maxAmount = options.getMaxAmount() != null ? options.getMaxAmount() : DEFAULT_MAX_AMOUNT;
+        List<LocalDateTime> createdAtValues = buildCreatedAtValues(options, count);
+
+        List<Transaction> generated = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            CreateTransactionRequest createRequest = new CreateTransactionRequest();
+            createRequest.setAccountId("ACC-" + String.format("%03d", ThreadLocalRandom.current().nextInt(1, 21)));
+            createRequest.setPayeeId("PAY-" + String.format("%03d", ThreadLocalRandom.current().nextInt(1, 51)));
+            createRequest.setAmount(randomAmount(minAmount, maxAmount));
+            createRequest.setCurrency("USD");
+            createRequest.setTransactionType(TRANSACTION_TYPES[ThreadLocalRandom.current().nextInt(TRANSACTION_TYPES.length)]);
+            createRequest.setDescription(DESCRIPTIONS[ThreadLocalRandom.current().nextInt(DESCRIPTIONS.length)]);
+            generated.add(createTransaction(createRequest, createdAtValues.get(i)));
+        }
+        return generated;
+    }
+
+    private void validateGenerateRequest(GenerateTransactionsRequest request, int count) {
+        if (count <= 0) {
+            throw new IllegalArgumentException("count must be greater than 0");
+        }
+
+        BigDecimal minAmount = request.getMinAmount() != null ? request.getMinAmount() : DEFAULT_MIN_AMOUNT;
+        BigDecimal maxAmount = request.getMaxAmount() != null ? request.getMaxAmount() : DEFAULT_MAX_AMOUNT;
+
+        if (minAmount.signum() <= 0) {
+            throw new IllegalArgumentException("minAmount must be greater than 0");
+        }
+        if (maxAmount.signum() <= 0) {
+            throw new IllegalArgumentException("maxAmount must be greater than 0");
+        }
+        if (minAmount.compareTo(maxAmount) > 0) {
+            throw new IllegalArgumentException("minAmount must not be greater than maxAmount");
+        }
+
+        LocalDateTime startAt = request.getStartAt();
+        LocalDateTime endAt = request.getEndAt();
+        if (startAt != null && endAt != null && startAt.isAfter(endAt)) {
+            throw new IllegalArgumentException("startAt must not be after endAt");
+        }
+
+        if (request.getStepSeconds() != null && request.getStepSeconds() <= 0) {
+            throw new IllegalArgumentException("stepSeconds must be greater than 0");
+        }
+
+        if (startAt != null && endAt != null) {
+            long rangeSeconds = Duration.between(startAt, endAt).getSeconds();
+            if (request.getStepSeconds() != null) {
+                long requiredSeconds = (long) request.getStepSeconds() * Math.max(0, count - 1);
+                if (requiredSeconds > rangeSeconds) {
+                    throw new IllegalArgumentException("time range must be large enough for count and stepSeconds");
+                }
+            } else if (count > 1 && rangeSeconds < count - 1L) {
+                throw new IllegalArgumentException("time range must span at least count - 1 seconds");
+            }
+        }
+    }
+
+    private List<LocalDateTime> buildCreatedAtValues(GenerateTransactionsRequest request, int count) {
+        int stepSeconds = request.getStepSeconds() != null ? request.getStepSeconds() : DEFAULT_STEP_SECONDS;
+        LocalDateTime startAt = request.getStartAt();
+        LocalDateTime endAt = request.getEndAt();
+
+        if (startAt == null && endAt == null) {
+            LocalDateTime base = LocalDateTime.now().minusSeconds((long) stepSeconds * Math.max(0, count - 1));
+            return buildSequentialCreatedAtValues(base, count, stepSeconds);
+        }
+
+        if (startAt != null && endAt == null) {
+            return buildSequentialCreatedAtValues(startAt, count, stepSeconds);
+        }
+
+        if (startAt == null) {
+            LocalDateTime base = endAt.minusSeconds((long) stepSeconds * Math.max(0, count - 1));
+            return buildSequentialCreatedAtValues(base, count, stepSeconds);
+        }
+
+        if (request.getStepSeconds() != null || count == 1) {
+            return buildSequentialCreatedAtValues(startAt, count, stepSeconds);
+        }
+
+        long totalSeconds = Duration.between(startAt, endAt).getSeconds();
+        List<LocalDateTime> createdAtValues = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            long offsetSeconds = (i * totalSeconds) / (count - 1L);
+            createdAtValues.add(startAt.plusSeconds(offsetSeconds));
+        }
+        return createdAtValues;
+    }
+
+    private List<LocalDateTime> buildSequentialCreatedAtValues(LocalDateTime startAt, int count, int stepSeconds) {
+        List<LocalDateTime> createdAtValues = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            createdAtValues.add(startAt.plusSeconds((long) stepSeconds * i));
+        }
+        return createdAtValues;
+    }
+
+    private BigDecimal randomAmount(BigDecimal minAmount, BigDecimal maxAmount) {
+        if (minAmount.compareTo(maxAmount) == 0) {
+            return minAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        double value = ThreadLocalRandom.current().nextDouble(minAmount.doubleValue(), maxAmount.doubleValue());
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
     }
 }

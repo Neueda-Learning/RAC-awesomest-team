@@ -1,6 +1,8 @@
 package com.example.monitoring.transaction.controller;
 
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
+import com.example.monitoring.transaction.dto.GenerateTransactionsRequest;
+import com.example.monitoring.transaction.dto.GenerateTransactionsResponse;
 import com.example.monitoring.transaction.entity.Transaction;
 import com.example.monitoring.transaction.service.TransactionService;
 import jakarta.validation.Valid;
@@ -28,6 +30,15 @@ public class TransactionController {
     public ResponseEntity<Transaction> createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
         Transaction created = transactionService.createTransaction(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    // POST /transactions/generate?count=100 — 自动生成测试交易数据
+    @PostMapping("/generate")
+    public ResponseEntity<GenerateTransactionsResponse> generateTransactions(
+            GenerateTransactionsRequest request) {
+        List<Transaction> generated = transactionService.generateMockTransactions(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new GenerateTransactionsResponse(generated.size(), LocalDateTime.now()));
     }
 
     // GET /transactions — 查看所有交易
