@@ -250,8 +250,8 @@
                             <input type="text" id="add-accountId" placeholder="e.g. ACC-001">
                         </div>
                         <div class="form-group">
-                            <label>Payee ID *</label>
-                            <input type="text" id="add-payeeId" placeholder="e.g. PAYEE-A">
+                            <label id="add-payee-label">Counterparty ID *</label>
+                            <input type="text" id="add-payeeId" placeholder="e.g. ACC-002">
                         </div>
                         <div class="form-group">
                             <label>Amount *</label>
@@ -260,8 +260,11 @@
                         <div class="form-group">
                             <label>Transaction Type *</label>
                             <select id="add-type">
-                                <option value="DEBIT">💸 Debit (Out)</option>
-                                <option value="CREDIT">💰 Credit (In)</option>
+                                <option value="SALARY">💼 Salary</option>
+                                <option value="REFUND">↩ Refund</option>
+                                <option value="TRANSFER_OUT">💸 Transfer Out</option>
+                                <option value="DEPOSIT">🏦 Deposit</option>
+                                <option value="WITHDRAWAL">🏧 Withdrawal</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -344,6 +347,10 @@
 
     <script>
         const API = 'http://localhost:8080';
+        const FX_APP_ID = 'da4ca83d160f44168d996e6e3fed6f79';
+        const FX_API = 'https://openexchangerates.org/api/latest.json';
+        const FX_CACHE_TTL_MS = 5 * 60 * 1000;
+        let fxCache = null;
 
         function showPage(name, el, title) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -362,9 +369,17 @@
                 const res = await fetch(`${API}/transactions`);
                 const data = await res.json();
                 const total = data.length;
-                const totalAmount = data.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
                 document.getElementById('dash-total-count').textContent = total;
-                document.getElementById('dash-total-amount').textContent = '$' + totalAmount.toFixed(2);
+
+                const fxResult = await calcTotalInUsd(data);
+                document.getElementById('dash-total-amount').textContent = '$' + fxResult.totalUsd.toFixed(2) + ' USD';
+
+                if (fxResult.status === 'stale-cache') {
+                    showToast('Using cached exchange rates (latest fetch failed)', 'error');
+                } else if (fxResult.status === 'usd-only') {
+                    showToast('Exchange rates unavailable: showing USD-only total', 'error');
+                }
+
                 if (total === 0) {
                     document.getElementById('dash-empty').style.display = 'block';
                 } else {
@@ -386,8 +401,12 @@
             const currency = document.getElementById('add-currency').value;
             const description = document.getElementById('add-description').value.trim();
 
-            if (!accountId || !payeeId || !amount) {
-                showToast('Please fill in Account ID, Payee ID and Amount', 'error'); return;
+            const payeeValidation = validatePayeeForType(transactionType, payeeId);
+            if (!accountId || !amount) {
+                showToast('Please fill in Account ID and Amount', 'error'); return;
+            }
+            if (!payeeValidation.ok) {
+                showToast(payeeValidation.message, 'error'); return;
             }
             if (parseFloat(amount) <= 0) {
                 showToast('Amount must be greater than 0', 'error'); return;
@@ -397,7 +416,7 @@
                 const res = await fetch(`${API}/transactions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ accountId, payeeId, amount: parseFloat(amount), transactionType, currency, description })
+                    body: JSON.stringify({ accountId, payeeId: normalizePayeeForType(transactionType, payeeId), amount: parseFloat(amount), transactionType, currency, description })
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(JSON.stringify(e)); }
                 const created = await res.json();
@@ -410,8 +429,9 @@
 
         function clearForm() {
             ['add-accountId','add-payeeId','add-amount','add-description'].forEach(id => document.getElementById(id).value = '');
-            document.getElementById('add-type').value = 'DEBIT';
+            document.getElementById('add-type').value = 'SALARY';
             document.getElementById('add-currency').value = 'USD';
+            updatePayeeFieldBehavior();
         }
 
         async function applySearch() {
@@ -472,16 +492,137 @@
         }
 
         function renderRow(tx) {
-            const isDebit = tx.transactionType === 'DEBIT';
+            const typeMeta = getTypeMeta(tx.transactionType);
+            const amount = formatAmountWithCurrency(tx.amount, tx.currency);
             return `<tr>
                 <td class="tx-id">#${tx.id}</td>
                 <td>${esc(tx.accountId)}</td>
-                <td>${esc(tx.payeeId)}</td>
-                <td><span class="badge ${isDebit ? 'badge-debit' : 'badge-credit'}">${isDebit ? '💸 DEBIT' : '💰 CREDIT'}</span></td>
-                <td class="${isDebit ? 'amount-negative' : 'amount-positive'}">${isDebit ? '-' : '+'}$${parseFloat(tx.amount).toFixed(2)}</td>
+                <td>${esc(tx.payeeId || '-')}</td>
+                <td><span class="badge ${typeMeta.isOutflow ? 'badge-debit' : 'badge-credit'}">${typeMeta.label}</span></td>
+                <td class="${typeMeta.isOutflow ? 'amount-negative' : 'amount-positive'}">${typeMeta.isOutflow ? '-' : '+'}${amount}</td>
                 <td>${esc(tx.description || '-')}</td>
                 <td class="timestamp">${fmt(tx.createdAt)}</td>
             </tr>`;
+        }
+
+        function getTypeMeta(type) {
+            const normalized = (type || '').toUpperCase();
+            const map = {
+                SALARY: { label: '💼 SALARY', isOutflow: false },
+                REFUND: { label: '↩ REFUND', isOutflow: false },
+                TRANSFER_OUT: { label: '💸 TRANSFER OUT', isOutflow: true },
+                DEPOSIT: { label: '🏦 DEPOSIT', isOutflow: false },
+                WITHDRAWAL: { label: '🏧 WITHDRAWAL', isOutflow: true },
+                DEBIT: { label: '💸 DEBIT', isOutflow: true },
+                CREDIT: { label: '💰 CREDIT', isOutflow: false }
+            };
+            return map[normalized] || { label: esc(normalized || 'UNKNOWN'), isOutflow: false };
+        }
+
+        function validatePayeeForType(type, payeeId) {
+            const normalizedType = (type || '').toUpperCase();
+            const hasPayee = !!payeeId;
+            if ((normalizedType === 'SALARY' || normalizedType === 'REFUND' || normalizedType === 'TRANSFER_OUT') && !hasPayee) {
+                return { ok: false, message: 'Counterparty ID is required for this transaction type' };
+            }
+            if ((normalizedType === 'DEPOSIT' || normalizedType === 'WITHDRAWAL') && hasPayee) {
+                return { ok: false, message: 'Counterparty ID must be empty for Deposit/Withdrawal' };
+            }
+            return { ok: true };
+        }
+
+        function normalizePayeeForType(type, payeeId) {
+            const normalizedType = (type || '').toUpperCase();
+            if (normalizedType === 'DEPOSIT' || normalizedType === 'WITHDRAWAL') {
+                return null;
+            }
+            return payeeId || null;
+        }
+
+        function updatePayeeFieldBehavior() {
+            const type = document.getElementById('add-type').value;
+            const label = document.getElementById('add-payee-label');
+            const input = document.getElementById('add-payeeId');
+            const noPayee = type === 'DEPOSIT' || type === 'WITHDRAWAL';
+
+            if (noPayee) {
+                label.textContent = 'Counterparty ID';
+                input.value = '';
+                input.disabled = true;
+                input.placeholder = 'Not required for this type';
+            } else {
+                label.textContent = 'Counterparty ID *';
+                input.disabled = false;
+                input.placeholder = 'e.g. ACC-002';
+            }
+        }
+
+        async function calcTotalInUsd(transactions) {
+            if (transactions.length === 0) return { totalUsd: 0, status: 'live' };
+
+            try {
+                const ratesData = await getFxRates();
+                let totalUsd = 0;
+                for (const tx of transactions) {
+                    const usdAmount = convertToUsd(tx.amount, tx.currency, ratesData.rates);
+                    if (usdAmount !== null) totalUsd += usdAmount;
+                }
+                return { totalUsd, status: ratesData.source };
+            } catch (e) {
+                let usdOnlyTotal = 0;
+                for (const tx of transactions) {
+                    if ((tx.currency || 'USD').toUpperCase() === 'USD') {
+                        usdOnlyTotal += safeNumber(tx.amount);
+                    }
+                }
+                return { totalUsd: usdOnlyTotal, status: 'usd-only' };
+            }
+        }
+
+        async function getFxRates() {
+            const now = Date.now();
+            if (fxCache && now - fxCache.fetchedAt < FX_CACHE_TTL_MS) {
+                return { ...fxCache, source: 'cache' };
+            }
+
+            try {
+                const url = `${FX_API}?app_id=${encodeURIComponent(FX_APP_ID)}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to fetch exchange rates');
+
+                const data = await res.json();
+                if (!data || !data.rates || !data.rates.USD) {
+                    throw new Error('Invalid exchange rate payload');
+                }
+
+                fxCache = { rates: data.rates, fetchedAt: now };
+                return { ...fxCache, source: 'live' };
+            } catch (e) {
+                if (fxCache) {
+                    return { ...fxCache, source: 'stale-cache' };
+                }
+                throw e;
+            }
+        }
+
+        function convertToUsd(amount, currency, rates) {
+            const num = safeNumber(amount);
+            const code = (currency || 'USD').toUpperCase();
+            const rate = rates[code];
+            if (!rate || rate <= 0) return null;
+            return num / rate;
+        }
+
+        function formatAmountWithCurrency(amount, currency) {
+            const num = safeNumber(amount);
+            const code = (currency || 'USD').toUpperCase();
+            const symbol = code === 'USD' ? '$' : '';
+            return `${symbol}${num.toFixed(2)} ${code}`;
+        }
+
+        function safeNumber(value) {
+            const num = parseFloat(value);
+            return Number.isFinite(num) ? num : 0;
         }
 
         function esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
@@ -494,6 +635,8 @@
             setTimeout(() => t.className = 'toast', 3500);
         }
 
+        document.getElementById('add-type').addEventListener('change', updatePayeeFieldBehavior);
+        updatePayeeFieldBehavior();
         loadDashboard();
     </script>
 </body>

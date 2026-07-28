@@ -3,6 +3,7 @@ package com.example.monitoring.transaction.service;
 import com.example.monitoring.rule.service.RuleEngineService;
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
 import com.example.monitoring.transaction.entity.Transaction;
+import com.example.monitoring.transaction.entity.TransactionType;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 
@@ -26,12 +27,16 @@ public class TransactionService {
      * 提交一笔交易，保存后自动触发规则引擎评估
      */
     public Transaction createTransaction(CreateTransactionRequest request) {
+        TransactionType transactionType = TransactionType.from(request.getTransactionType());
+        String normalizedPayeeId = normalizePayeeId(request.getPayeeId());
+        validatePayeeRules(transactionType, normalizedPayeeId);
+
         Transaction transaction = new Transaction(
                 request.getAccountId(),
-                request.getPayeeId(),
+                normalizedPayeeId,
                 request.getAmount(),
-                request.getCurrency() != null ? request.getCurrency() : "USD",
-                request.getTransactionType(),
+                request.getCurrency() != null ? request.getCurrency().trim().toUpperCase() : "USD",
+                transactionType.name(),
                 request.getDescription(),
                 LocalDateTime.now()
         );
@@ -41,6 +46,23 @@ public class TransactionService {
         ruleEngineService.evaluate(saved);
 
         return saved;
+    }
+
+    private String normalizePayeeId(String payeeId) {
+        if (payeeId == null) {
+            return null;
+        }
+        String trimmed = payeeId.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void validatePayeeRules(TransactionType transactionType, String payeeId) {
+        if (transactionType.requiresPayee() && payeeId == null) {
+            throw new IllegalArgumentException("payeeId is required for transactionType " + transactionType.name());
+        }
+        if (transactionType.forbidsPayee() && payeeId != null) {
+            throw new IllegalArgumentException("payeeId must be empty for transactionType " + transactionType.name());
+        }
     }
 
     public List<Transaction> getAllTransactions() {
