@@ -28,3 +28,17 @@ replay_pid*
 .env.*
 application-local.properties
 application-dev.properties
+
+# Project notes and local documentation
+/notes/
+
+# IntelliJ shared settings allowlist (add-only override)
+!.idea/
+.idea/*
+!.idea/codeStyles/
+!.idea/codeStyles/**
+!.idea/inspectionProfiles/
+!.idea/inspectionProfiles/**
+!.idea/runConfigurations/
+!.idea/runConfigurations/**
+

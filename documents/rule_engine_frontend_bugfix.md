@@ -1,8 +1,9 @@
 # Rule Engine Frontend Bug Fix Report
 
 **Date:** 2026-07-27  
-**File Fixed:** `src/main/resources/static/rule_engine.html`  
-**Author:** Rule Engine Module (Member B)
+**File Fixed:** `backend/src/main/resources/static/rule_engine.html`  
+
+
 
 ---
 
@@ -231,8 +232,45 @@ $r | ForEach-Object { Write-Output "$($_.id) $($_.ruleName) active=$($_.active)"
 
 ```
 ✅ 正确：http://localhost:8080/rule_engine.html
-❌ 错误：file:///C:/RAC-awesomest-team/src/main/resources/static/rule_engine.html
+❌ 错误：file:///C:/RAC-awesomest-team/backend/src/main/resources/static/rule_engine.html
+
 ```
 
 直接用 `file://` 打开会因为浏览器 CORS 安全策略导致 fetch 请求失败。
+
+---
+
+## 增量补充（仅新增，不改动原记录）
+
+### 1) 重构后路径现状
+
+- 当前页面文件位于：
+  - `backend/src/main/resources/static/rule_engine.html`
+  - `backend/src/main/resources/static/transactions.html`
+  - `backend/src/main/resources/static/alerts.html`
+- 推荐访问入口：
+  - `http://localhost:8080/rule_engine.html`
+  - `http://localhost:8080/transactions.html`
+  - `http://localhost:8080/alerts.html`
+
+### 2) API 路由约定（当前实现）
+
+- 当前控制器实际路由不带 `/api` 前缀：
+  - Rules: `/rules`
+  - Transactions: `/transactions`
+  - Alerts: `/alerts`
+- 若后续统一改为 `/api/...`，需要同步更新三个静态页面中的 `fetch` 地址。
+
+### 3) 三页互跳导航补充
+
+- 侧边栏 Quick Links 已支持页面互跳：
+  - `rule_engine.html` 可跳转 `transactions.html`、`alerts.html`
+  - `transactions.html` 可跳转 `rule_engine.html`、`alerts.html`
+  - `alerts.html` 可跳转 `rule_engine.html`、`transactions.html`
+
+### 4) 新增规则 500 问题关联说明
+
+- 现象：规则新增请求 `POST /rules` 可能返回 500。
+- 已处理：在 `backend/src/main/java/com/example/monitoring/rule/service/RuleService.java` 的 `createRule` 中补充 `createdAt/updatedAt` 默认时间戳初始化。
+- 说明：该问题与本报告的前端字段名修复不同，属于后端插入数据完整性问题，二者都需要保留记录。
 
