@@ -96,6 +96,18 @@
         .page-title { font-size: 20px; font-weight: 700; color: #1a1a2e; }
         .content-area { padding: 24px; }
 
+        .page {
+            display: none;
+            animation: fadeIn 0.18s ease;
+        }
+
+        .page.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(3px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -152,6 +164,13 @@
             position: relative;
         }
 
+        .block-title {
+            margin: 6px 0 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+        }
+
         .filter-panel {
             background: #fff;
             border-radius: 10px;
@@ -169,7 +188,7 @@
 
         .filter-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             gap: 12px;
             margin-bottom: 12px;
         }
@@ -201,6 +220,46 @@
 
         .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
+        .pagination {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px;
+            border-top: 1px solid #eef1f5;
+            background: #fbfcfe;
+        }
+
+        .pagination.show { display: flex; }
+
+        .page-btn {
+            min-width: 32px;
+            height: 32px;
+            border: 1px solid #d8dce2;
+            background: #fff;
+            color: #333;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0 8px;
+        }
+
+        .page-btn:hover { background: #f4f6fa; }
+        .page-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+        .page-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .page-info {
+            font-size: 12px;
+            color: #666;
+            margin: 0 6px;
+        }
+
         .btn {
             border: none;
             border-radius: 8px;
@@ -221,13 +280,6 @@
             background: #fff;
             color: #667eea;
             border: 1px solid #667eea;
-        }
-
-        .section-title {
-            margin: 18px 0 8px;
-            font-size: 15px;
-            font-weight: 700;
-            color: #333;
         }
 
         .card {
@@ -426,171 +478,122 @@
         </div>
 
         <nav class="nav-section">
-            <div class="nav-section-title">Menu</div>
-            <button class="nav-item active" type="button">
-                <span>🚨</span>
-                <span>Alert List</span>
+            <div class="nav-section-title">Pages</div>
+            <button class="nav-item active" type="button" data-page="dashboard" onclick="switchPage('dashboard', this)">
+                <span>📊</span><span>Dashboard</span>
+            </button>
+            <button class="nav-item" type="button" data-page="pending" onclick="switchPage('pending', this)">
+                <span>🕓</span><span>Pending Alerts</span>
+            </button>
+            <button class="nav-item" type="button" data-page="resolved" onclick="switchPage('resolved', this)">
+                <span>✅</span><span>Resolved Alerts</span>
             </button>
 
             <div class="nav-section-title" style="margin-top: 18px;">Quick Links</div>
             <button class="nav-item" type="button" onclick="window.open('/transactions.html', '_self')">
-                <span>💸</span>
-                <span>Transactions</span>
+                <span>💸</span><span>Transactions</span>
             </button>
             <button class="nav-item" type="button" onclick="window.open('/rule_engine.html', '_self')">
-                <span>⚙️</span>
-                <span>Rules</span>
+                <span>⚙️</span><span>Rules</span>
             </button>
         </nav>
     </aside>
 
     <main class="main">
         <div class="top-bar">
-            <div class="page-title">Alert Management</div>
+            <div class="page-title" id="page-title">Alert Dashboard</div>
         </div>
 
         <div class="content-area">
-            <div class="stats-grid">
-                <div class="stat-card blue">
-                    <div id="stat-total" class="stat-value">-</div>
-                    <div class="stat-label">Total Alerts</div>
+            <section id="page-dashboard" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card blue"><div id="stat-total" class="stat-value">-</div><div class="stat-label">Total Alerts</div></div>
+                    <div class="stat-card red"><div id="stat-open" class="stat-value">-</div><div class="stat-label">OPEN</div></div>
+                    <div class="stat-card orange"><div id="stat-ack" class="stat-value">-</div><div class="stat-label">ACKNOWLEDGED</div></div>
+                    <div class="stat-card blue"><div id="stat-inv" class="stat-value">-</div><div class="stat-label">INVESTIGATING</div></div>
+                    <div class="stat-card green"><div id="stat-closed" class="stat-value">-</div><div class="stat-label">CLOSED</div></div>
+                    <div class="stat-card green"><div id="stat-dismissed" class="stat-value">-</div><div class="stat-label">DISMISSED</div></div>
                 </div>
-                <div class="stat-card red">
-                    <div id="stat-open" class="stat-value">-</div>
-                    <div class="stat-label">Open</div>
-                </div>
-                <div class="stat-card orange">
-                    <div id="stat-investigating" class="stat-value">-</div>
-                    <div class="stat-label">Investigating</div>
-                </div>
-                <div class="stat-card green">
-                    <div id="stat-closed" class="stat-value">-</div>
-                    <div class="stat-label">Closed</div>
-                </div>
-            </div>
 
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-title">Status Distribution</div>
-                    <div class="chart-wrap">
-                        <canvas id="statusPieChart"></canvas>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-title">Status Distribution</div>
+                        <div class="chart-wrap"><canvas id="statusPieChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Severity Distribution</div>
+                        <div class="chart-wrap"><canvas id="severityBarChart"></canvas></div>
                     </div>
                 </div>
-                <div class="chart-card">
-                    <div class="chart-title">Severity Distribution</div>
-                    <div class="chart-wrap">
-                        <canvas id="severityBarChart"></canvas>
-                    </div>
-                </div>
-            </div>
+            </section>
 
-            <div class="filter-panel">
-                <div class="filter-title">Advanced Filters</div>
-                <div class="filter-grid">
-                    <div class="form-group">
-                        <label for="statusFilter">Status</label>
-                        <select id="statusFilter">
-                            <option value="">All</option>
-                            <option value="OPEN">OPEN</option>
-                            <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
-                            <option value="INVESTIGATING">INVESTIGATING</option>
-                            <option value="CLOSED">CLOSED</option>
-                            <option value="DISMISSED">DISMISSED</option>
-                        </select>
+            <section id="page-pending" class="page">
+                <div class="block-title">Pending Status Summary</div>
+                <div class="stats-grid">
+                    <div class="stat-card red"><div id="pending-total" class="stat-value">-</div><div class="stat-label">Pending Total</div></div>
+                    <div class="stat-card red"><div id="pending-open" class="stat-value">-</div><div class="stat-label">OPEN</div></div>
+                    <div class="stat-card orange"><div id="pending-ack" class="stat-value">-</div><div class="stat-label">ACKNOWLEDGED</div></div>
+                    <div class="stat-card blue"><div id="pending-inv" class="stat-value">-</div><div class="stat-label">INVESTIGATING</div></div>
+                </div>
+
+                <div class="filter-panel">
+                    <div class="filter-title">Advanced Search</div>
+                    <div class="filter-grid">
+                        <div class="form-group"><label for="p-status">Status</label><select id="p-status"><option value="">All Pending</option><option value="OPEN">OPEN</option><option value="ACKNOWLEDGED">ACKNOWLEDGED</option><option value="INVESTIGATING">INVESTIGATING</option></select></div>
+                        <div class="form-group"><label for="p-severity">Severity</label><select id="p-severity"><option value="">All</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select></div>
+                        <div class="form-group"><label for="p-rule">Rule ID</label><input id="p-rule" type="number" min="1" placeholder="e.g. 1"></div>
+                        <div class="form-group"><label for="p-account">Account ID</label><input id="p-account" type="text" placeholder="e.g. ACC-001"></div>
+                        <div class="form-group"><label for="p-from">From Time</label><input id="p-from" type="datetime-local"></div>
+                        <div class="form-group"><label for="p-to">To Time</label><input id="p-to" type="datetime-local"></div>
+                        <div class="form-group"><label for="p-sort">Sort</label><select id="p-sort"><option value="CREATED_DESC">Created (Newest)</option><option value="CREATED_ASC">Created (Oldest)</option><option value="SEVERITY_DESC">Severity (HIGH -> LOW)</option><option value="SEVERITY_ASC">Severity (LOW -> HIGH)</option></select></div>
                     </div>
-                    <div class="form-group">
-                        <label for="severityFilter">Severity</label>
-                        <select id="severityFilter">
-                            <option value="">All</option>
-                            <option value="HIGH">HIGH</option>
-                            <option value="MEDIUM">MEDIUM</option>
-                            <option value="LOW">LOW</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="ruleFilter">Rule ID</label>
-                        <input id="ruleFilter" type="number" min="1" placeholder="e.g. 1">
-                    </div>
-                    <div class="form-group">
-                        <label for="accountFilter">Account ID</label>
-                        <input id="accountFilter" type="text" placeholder="e.g. ACC-001">
-                    </div>
-                    <div class="form-group">
-                        <label for="fromFilter">From Time</label>
-                        <input id="fromFilter" type="datetime-local">
-                    </div>
-                    <div class="form-group">
-                        <label for="toFilter">To Time</label>
-                        <input id="toFilter" type="datetime-local">
-                    </div>
-                    <div class="form-group">
-                        <label for="processedFilter">Processed</label>
-                        <select id="processedFilter">
-                            <option value="">All</option>
-                            <option value="UNPROCESSED">Unprocessed (OPEN)</option>
-                            <option value="PROCESSED">Processed (non-OPEN)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="sortFilter">Sort By</label>
-                        <select id="sortFilter">
-                            <option value="CREATED_DESC">Created (Newest)</option>
-                            <option value="CREATED_ASC">Created (Oldest)</option>
-                            <option value="SEVERITY_DESC">Severity (HIGH -> LOW)</option>
-                            <option value="SEVERITY_ASC">Severity (LOW -> HIGH)</option>
-                        </select>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-primary" onclick="renderPending()">Apply</button>
+                        <button type="button" class="btn btn-outline" onclick="clearPendingFilters()">Clear</button>
+                        <button type="button" class="btn btn-outline" onclick="refreshAlertsPage('pending')">Refresh</button>
                     </div>
                 </div>
-                <div class="btn-row">
-                    <button type="button" class="btn btn-primary" onclick="loadAlerts()">Apply Filters</button>
-                    <button type="button" class="btn btn-outline" onclick="clearFilters()">Clear Filters</button>
-                    <button type="button" class="btn btn-outline" onclick="refreshAlerts()">Refresh</button>
+
+                <div class="card">
+                    <div id="pending-loading" class="loading">Loading pending alerts...</div>
+                    <table id="pending-table" style="display: none;">
+                        <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                        <tbody id="pending-tbody"></tbody>
+                    </table>
+                    <div id="pending-pagination" class="pagination"></div>
+                    <div id="pending-empty" class="empty">No pending alerts found.</div>
                 </div>
-            </div>
+            </section>
 
-            <div class="section-title">Unprocessed Alerts (OPEN)</div>
-            <div class="card">
-                <div id="open-loading" class="loading">Loading unprocessed alerts...</div>
-                <table id="open-table" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Account</th>
-                            <th>Rule</th>
-                            <th>Transaction</th>
-                            <th>Severity</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th>Updated</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="open-tbody"></tbody>
-                </table>
-                <div id="open-empty" class="empty">No unprocessed alerts found.</div>
-            </div>
+            <section id="page-resolved" class="page">
+                <div class="filter-panel">
+                    <div class="filter-title">Advanced Search</div>
+                    <div class="filter-grid">
+                        <div class="form-group"><label for="r-status">Status</label><select id="r-status"><option value="">All Resolved</option><option value="CLOSED">CLOSED</option><option value="DISMISSED">DISMISSED</option></select></div>
+                        <div class="form-group"><label for="r-severity">Severity</label><select id="r-severity"><option value="">All</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select></div>
+                        <div class="form-group"><label for="r-rule">Rule ID</label><input id="r-rule" type="number" min="1" placeholder="e.g. 1"></div>
+                        <div class="form-group"><label for="r-account">Account ID</label><input id="r-account" type="text" placeholder="e.g. ACC-001"></div>
+                        <div class="form-group"><label for="r-from">From Time</label><input id="r-from" type="datetime-local"></div>
+                        <div class="form-group"><label for="r-to">To Time</label><input id="r-to" type="datetime-local"></div>
+                        <div class="form-group"><label for="r-sort">Sort</label><select id="r-sort"><option value="CREATED_DESC">Created (Newest)</option><option value="CREATED_ASC">Created (Oldest)</option><option value="SEVERITY_DESC">Severity (HIGH -> LOW)</option><option value="SEVERITY_ASC">Severity (LOW -> HIGH)</option></select></div>
+                    </div>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-primary" onclick="renderResolved()">Apply</button>
+                        <button type="button" class="btn btn-outline" onclick="clearResolvedFilters()">Clear</button>
+                        <button type="button" class="btn btn-outline" onclick="refreshAlertsPage('resolved')">Refresh</button>
+                    </div>
+                </div>
 
-            <div class="section-title">Processed Alerts</div>
-            <div class="card">
-                <div id="processed-loading" class="loading">Loading processed alerts...</div>
-                <table id="processed-table" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Account</th>
-                            <th>Rule</th>
-                            <th>Transaction</th>
-                            <th>Severity</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th>Updated</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="processed-tbody"></tbody>
-                </table>
-                <div id="processed-empty" class="empty">No processed alerts found.</div>
-            </div>
+                <div class="card">
+                    <div id="resolved-loading" class="loading">Loading resolved alerts...</div>
+                    <table id="resolved-table" style="display: none;">
+                        <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                        <tbody id="resolved-tbody"></tbody>
+                    </table>
+                    <div id="resolved-pagination" class="pagination"></div>
+                    <div id="resolved-empty" class="empty">No resolved alerts found.</div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -598,9 +601,7 @@
         <div class="modal">
             <h3 id="history-title">Alert History</h3>
             <div id="history-list"></div>
-            <div style="margin-top: 12px; text-align: right;">
-                <button type="button" class="btn btn-outline" onclick="closeHistory()">Close</button>
-            </div>
+            <div style="margin-top: 12px; text-align: right;"><button type="button" class="btn btn-outline" onclick="closeHistory()">Close</button></div>
         </div>
     </div>
 
@@ -610,19 +611,18 @@
     <script>
         const API = window.location.origin || 'http://localhost:8080';
         const severityRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+        const pendingStatuses = ['OPEN', 'ACKNOWLEDGED', 'INVESTIGATING'];
+        const resolvedStatuses = ['CLOSED', 'DISMISSED'];
+        const PAGE_SIZE = 10;
         const transactionCache = new Map();
         let allAlerts = [];
+        let pendingPage = 1;
+        let resolvedPage = 1;
         let statusPieChart;
         let severityBarChart;
 
         function esc(v) {
-            return String(v ?? '').replace(/[&<>"']/g, ch => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            })[ch]);
+            return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
         }
 
         function toTimeMs(value) {
@@ -630,58 +630,65 @@
             return Number.isNaN(d.getTime()) ? 0 : d.getTime();
         }
 
+        function parseLocalDate(value) {
+            if (!value) return null;
+            const d = new Date(value);
+            return Number.isNaN(d.getTime()) ? null : d.getTime();
+        }
+
         function showToast(message, type) {
             const t = document.getElementById('toast');
             t.textContent = message;
             t.className = 'toast ' + type + ' show';
-            setTimeout(() => t.classList.remove('show'), 2400);
+            setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        function switchPage(page, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+
+            document.querySelectorAll('.nav-item[data-page]').forEach(b => b.classList.remove('active'));
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                const found = document.querySelector(`.nav-item[data-page="${page}"]`);
+                if (found) found.classList.add('active');
+            }
+
+            const title = {
+                dashboard: 'Alert Dashboard',
+                pending: 'Pending Alerts',
+                resolved: 'Resolved Alerts'
+            }[page] || 'Alert Management';
+            document.getElementById('page-title').textContent = title;
+
+            if (page === 'dashboard') renderDashboard();
+            if (page === 'pending') renderPending();
+            if (page === 'resolved') renderResolved();
         }
 
         function statusBadge(status) {
-            const cls = {
-                OPEN: 'status-open',
-                ACKNOWLEDGED: 'status-ack',
-                INVESTIGATING: 'status-inv',
-                CLOSED: 'status-close',
-                DISMISSED: 'status-dismiss'
-            }[status] || '';
+            const cls = { OPEN: 'status-open', ACKNOWLEDGED: 'status-ack', INVESTIGATING: 'status-inv', CLOSED: 'status-close', DISMISSED: 'status-dismiss' }[status] || '';
             return `<span class="badge ${cls}">${esc(status)}</span>`;
         }
 
         function severityBadge(severity) {
-            const cls = {
-                HIGH: 'badge-high',
-                MEDIUM: 'badge-medium',
-                LOW: 'badge-low'
-            }[severity] || '';
+            const cls = { HIGH: 'badge-high', MEDIUM: 'badge-medium', LOW: 'badge-low' }[severity] || '';
             return `<span class="badge ${cls}">${esc(severity)}</span>`;
         }
 
         function renderActionButtons(alert) {
             const id = alert.id;
             if (alert.status === 'OPEN') {
-                return `<div class="row-actions">
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'acknowledge')">Acknowledge</button>
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button>
-                </div>`;
+                return `<div class="row-actions"><button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'acknowledge')">Acknowledge</button><button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button></div>`;
             }
             if (alert.status === 'ACKNOWLEDGED') {
-                return `<div class="row-actions">
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'investigate')">Investigate</button>
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'dismiss')">Dismiss</button>
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button>
-                </div>`;
+                return `<div class="row-actions"><button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'investigate')">Investigate</button><button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'dismiss')">Dismiss</button><button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button></div>`;
             }
             if (alert.status === 'INVESTIGATING') {
-                return `<div class="row-actions">
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'close')">Close</button>
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'dismiss')">Dismiss</button>
-                    <button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button>
-                </div>`;
+                return `<div class="row-actions"><button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'close')">Close</button><button type="button" class="btn-mini" onclick="event.stopPropagation(); changeStatus(${id}, 'dismiss')">Dismiss</button><button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button></div>`;
             }
-            return `<div class="row-actions">
-                <button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button>
-            </div>`;
+            return `<div class="row-actions"><button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button></div>`;
         }
 
         function renderAlertRow(alert) {
@@ -697,9 +704,7 @@
                 <td>${renderActionButtons(alert)}</td>
             </tr>
             <tr id="detail-${alert.id}" class="detail-row" style="display:none;">
-                <td colspan="9">
-                    <div id="detail-content-${alert.id}" class="detail-box">Loading transaction details...</div>
-                </td>
+                <td colspan="9"><div id="detail-content-${alert.id}" class="detail-box">Loading transaction details...</div></td>
             </tr>`;
         }
 
@@ -738,29 +743,20 @@
             }
         }
 
-        function parseLocalDate(value) {
-            if (!value) return null;
-            const d = new Date(value);
-            return Number.isNaN(d.getTime()) ? null : d.getTime();
-        }
+        function applyCommonFilters(alerts, ids) {
+            const status = document.getElementById(ids.status).value;
+            const severity = document.getElementById(ids.severity).value;
+            const ruleId = document.getElementById(ids.rule).value.trim();
+            const accountId = document.getElementById(ids.account).value.trim().toUpperCase();
+            const fromTime = parseLocalDate(document.getElementById(ids.from).value);
+            const toTime = parseLocalDate(document.getElementById(ids.to).value);
+            const sortBy = document.getElementById(ids.sort).value;
 
-        function applyFilters(alerts) {
-            const status = document.getElementById('statusFilter').value;
-            const severity = document.getElementById('severityFilter').value;
-            const ruleId = document.getElementById('ruleFilter').value.trim();
-            const accountId = document.getElementById('accountFilter').value.trim().toUpperCase();
-            const fromTime = parseLocalDate(document.getElementById('fromFilter').value);
-            const toTime = parseLocalDate(document.getElementById('toFilter').value);
-            const processed = document.getElementById('processedFilter').value;
-            const sortBy = document.getElementById('sortFilter').value;
-
-            let result = alerts.filter(a => {
+            const filtered = alerts.filter(a => {
                 if (status && a.status !== status) return false;
                 if (severity && a.severity !== severity) return false;
                 if (ruleId && String(a.ruleId) !== ruleId) return false;
                 if (accountId && String(a.accountId || '').toUpperCase() !== accountId) return false;
-                if (processed === 'UNPROCESSED' && a.status !== 'OPEN') return false;
-                if (processed === 'PROCESSED' && a.status === 'OPEN') return false;
 
                 const created = a.createdAt ? toTimeMs(a.createdAt) : 0;
                 if (fromTime && created < fromTime) return false;
@@ -768,40 +764,88 @@
                 return true;
             });
 
-            result.sort((a, b) => {
+            filtered.sort((a, b) => {
                 const aCreated = a.createdAt ? toTimeMs(a.createdAt) : 0;
                 const bCreated = b.createdAt ? toTimeMs(b.createdAt) : 0;
-
                 if (sortBy === 'CREATED_ASC') return aCreated - bCreated;
                 if (sortBy === 'SEVERITY_DESC') return (severityRank[b.severity] || 0) - (severityRank[a.severity] || 0);
                 if (sortBy === 'SEVERITY_ASC') return (severityRank[a.severity] || 0) - (severityRank[b.severity] || 0);
                 return bCreated - aCreated;
             });
 
-            return result;
+            return filtered;
         }
 
-        function updateStats(alerts) {
-            document.getElementById('stat-total').textContent = alerts.length;
-            document.getElementById('stat-open').textContent = alerts.filter(a => a.status === 'OPEN').length;
-            document.getElementById('stat-investigating').textContent = alerts.filter(a => a.status === 'INVESTIGATING').length;
-            document.getElementById('stat-closed').textContent = alerts.filter(a => a.status === 'CLOSED').length;
+        function paginate(list, currentPage) {
+            const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+            const page = Math.min(Math.max(1, currentPage), totalPages);
+            const start = (page - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            return {
+                page,
+                totalPages,
+                items: list.slice(start, end),
+                totalItems: list.length
+            };
         }
 
-        function updateCharts(alerts) {
-            const statusCounts = {
-                OPEN: alerts.filter(a => a.status === 'OPEN').length,
-                ACKNOWLEDGED: alerts.filter(a => a.status === 'ACKNOWLEDGED').length,
-                INVESTIGATING: alerts.filter(a => a.status === 'INVESTIGATING').length,
-                CLOSED: alerts.filter(a => a.status === 'CLOSED').length,
-                DISMISSED: alerts.filter(a => a.status === 'DISMISSED').length
-            };
+        function buildPageButton(label, disabled, onclickExpr, active) {
+            const disabledAttr = disabled ? ' disabled' : '';
+            const activeClass = active ? ' active' : '';
+            return `<button type="button" class="page-btn${activeClass}"${disabledAttr} onclick="${onclickExpr}">${label}</button>`;
+        }
 
-            const severityCounts = {
-                HIGH: alerts.filter(a => a.severity === 'HIGH').length,
-                MEDIUM: alerts.filter(a => a.severity === 'MEDIUM').length,
-                LOW: alerts.filter(a => a.severity === 'LOW').length
-            };
+        function renderPagination(containerId, state, goFnName) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+
+            if (state.totalItems <= PAGE_SIZE) {
+                el.classList.remove('show');
+                el.innerHTML = '';
+                return;
+            }
+
+            const prevBtn = buildPageButton('Prev', state.page <= 1, `${goFnName}(${state.page - 1})`, false);
+            const nextBtn = buildPageButton('Next', state.page >= state.totalPages, `${goFnName}(${state.page + 1})`, false);
+
+            const pages = [];
+            for (let i = 1; i <= state.totalPages; i++) {
+                if (i === 1 || i === state.totalPages || Math.abs(i - state.page) <= 1) {
+                    pages.push(buildPageButton(i, false, `${goFnName}(${i})`, i === state.page));
+                } else if (i === 2 && state.page > 3) {
+                    pages.push('<span class="page-info">...</span>');
+                } else if (i === state.totalPages - 1 && state.page < state.totalPages - 2) {
+                    pages.push('<span class="page-info">...</span>');
+                }
+            }
+
+            el.innerHTML = `${prevBtn}${pages.join('')}<span class="page-info">Page ${state.page} / ${state.totalPages}</span>${nextBtn}`;
+            el.classList.add('show');
+        }
+
+        function goPendingPage(page) {
+            pendingPage = page;
+            renderPending();
+        }
+
+        function goResolvedPage(page) {
+            resolvedPage = page;
+            renderResolved();
+        }
+
+        function renderDashboard() {
+            const open = allAlerts.filter(a => a.status === 'OPEN').length;
+            const ack = allAlerts.filter(a => a.status === 'ACKNOWLEDGED').length;
+            const inv = allAlerts.filter(a => a.status === 'INVESTIGATING').length;
+            const closed = allAlerts.filter(a => a.status === 'CLOSED').length;
+            const dismissed = allAlerts.filter(a => a.status === 'DISMISSED').length;
+
+            document.getElementById('stat-total').textContent = allAlerts.length;
+            document.getElementById('stat-open').textContent = open;
+            document.getElementById('stat-ack').textContent = ack;
+            document.getElementById('stat-inv').textContent = inv;
+            document.getElementById('stat-closed').textContent = closed;
+            document.getElementById('stat-dismissed').textContent = dismissed;
 
             if (statusPieChart) statusPieChart.destroy();
             if (severityBarChart) severityBarChart.destroy();
@@ -809,112 +853,108 @@
             statusPieChart = new Chart(document.getElementById('statusPieChart'), {
                 type: 'pie',
                 data: {
-                    labels: Object.keys(statusCounts),
-                    datasets: [{
-                        data: Object.values(statusCounts),
-                        backgroundColor: ['#d6334c', '#8a6d1c', '#1a5fb4', '#1e7e34', '#666']
-                    }]
+                    labels: ['OPEN', 'ACKNOWLEDGED', 'INVESTIGATING', 'CLOSED', 'DISMISSED'],
+                    datasets: [{ data: [open, ack, inv, closed, dismissed], backgroundColor: ['#d6334c', '#8a6d1c', '#1a5fb4', '#1e7e34', '#666'] }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
             });
+
+            const high = allAlerts.filter(a => a.severity === 'HIGH').length;
+            const medium = allAlerts.filter(a => a.severity === 'MEDIUM').length;
+            const low = allAlerts.filter(a => a.severity === 'LOW').length;
 
             severityBarChart = new Chart(document.getElementById('severityBarChart'), {
                 type: 'bar',
                 data: {
                     labels: ['HIGH', 'MEDIUM', 'LOW'],
-                    datasets: [{
-                        label: 'Alerts',
-                        data: [severityCounts.HIGH, severityCounts.MEDIUM, severityCounts.LOW],
-                        backgroundColor: ['#d6334c', '#8a6d1c', '#0b5d8b']
-                    }]
+                    datasets: [{ label: 'Alerts', data: [high, medium, low], backgroundColor: ['#d6334c', '#8a6d1c', '#0b5d8b'] }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grace: '10%',
-                            ticks: { precision: 0 }
-                        }
-                    },
-                    plugins: { legend: { display: false } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grace: '10%', ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
             });
         }
 
-        function renderTables(alerts) {
-            const open = alerts.filter(a => a.status === 'OPEN');
-            const processed = alerts.filter(a => a.status !== 'OPEN');
+        function renderPending() {
+            const pending = allAlerts.filter(a => pendingStatuses.includes(a.status));
 
-            const openTable = document.getElementById('open-table');
-            const openBody = document.getElementById('open-tbody');
-            const openLoading = document.getElementById('open-loading');
-            const openEmpty = document.getElementById('open-empty');
+            document.getElementById('pending-total').textContent = pending.length;
+            document.getElementById('pending-open').textContent = pending.filter(a => a.status === 'OPEN').length;
+            document.getElementById('pending-ack').textContent = pending.filter(a => a.status === 'ACKNOWLEDGED').length;
+            document.getElementById('pending-inv').textContent = pending.filter(a => a.status === 'INVESTIGATING').length;
 
-            const processedTable = document.getElementById('processed-table');
-            const processedBody = document.getElementById('processed-tbody');
-            const processedLoading = document.getElementById('processed-loading');
-            const processedEmpty = document.getElementById('processed-empty');
+            const filtered = applyCommonFilters(pending, {
+                status: 'p-status', severity: 'p-severity', rule: 'p-rule', account: 'p-account', from: 'p-from', to: 'p-to', sort: 'p-sort'
+            });
+            const pageState = paginate(filtered, pendingPage);
+            pendingPage = pageState.page;
 
-            openLoading.classList.remove('show');
-            processedLoading.classList.remove('show');
+            const tbody = document.getElementById('pending-tbody');
+            const table = document.getElementById('pending-table');
+            const empty = document.getElementById('pending-empty');
+            const loading = document.getElementById('pending-loading');
 
-            openBody.innerHTML = open.map(renderAlertRow).join('');
-            processedBody.innerHTML = processed.map(renderAlertRow).join('');
-
-            openTable.style.display = open.length ? 'table' : 'none';
-            processedTable.style.display = processed.length ? 'table' : 'none';
-
-            openEmpty.classList.toggle('show', !open.length);
-            processedEmpty.classList.toggle('show', !processed.length);
+            loading.classList.remove('show');
+            tbody.innerHTML = pageState.items.map(renderAlertRow).join('');
+            table.style.display = pageState.totalItems ? 'table' : 'none';
+            empty.classList.toggle('show', !pageState.totalItems);
+            renderPagination('pending-pagination', pageState, 'goPendingPage');
         }
 
-        async function loadAlerts() {
-            document.getElementById('open-loading').classList.add('show');
-            document.getElementById('processed-loading').classList.add('show');
-            document.getElementById('open-table').style.display = 'none';
-            document.getElementById('processed-table').style.display = 'none';
-            document.getElementById('open-empty').classList.remove('show');
-            document.getElementById('processed-empty').classList.remove('show');
+        function renderResolved() {
+            const resolved = allAlerts.filter(a => resolvedStatuses.includes(a.status));
+            const filtered = applyCommonFilters(resolved, {
+                status: 'r-status', severity: 'r-severity', rule: 'r-rule', account: 'r-account', from: 'r-from', to: 'r-to', sort: 'r-sort'
+            });
+            const pageState = paginate(filtered, resolvedPage);
+            resolvedPage = pageState.page;
 
-            try {
-                const res = await fetch(`${API}/alerts`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                allAlerts = await res.json();
+            const tbody = document.getElementById('resolved-tbody');
+            const table = document.getElementById('resolved-table');
+            const empty = document.getElementById('resolved-empty');
+            const loading = document.getElementById('resolved-loading');
 
-                const filtered = applyFilters(allAlerts);
-                updateStats(filtered);
-                updateCharts(filtered);
-                renderTables(filtered);
-            } catch (e) {
-                document.getElementById('open-loading').classList.remove('show');
-                document.getElementById('processed-loading').classList.remove('show');
-                document.getElementById('open-empty').classList.add('show');
-                document.getElementById('processed-empty').classList.add('show');
-                showToast(`Failed to load alerts: ${e.message}`, 'error');
+            loading.classList.remove('show');
+            tbody.innerHTML = pageState.items.map(renderAlertRow).join('');
+            table.style.display = pageState.totalItems ? 'table' : 'none';
+            empty.classList.toggle('show', !pageState.totalItems);
+            renderPagination('resolved-pagination', pageState, 'goResolvedPage');
+        }
+
+        function clearPendingFilters() {
+            document.getElementById('p-status').value = '';
+            document.getElementById('p-severity').value = '';
+            document.getElementById('p-rule').value = '';
+            document.getElementById('p-account').value = '';
+            document.getElementById('p-from').value = '';
+            document.getElementById('p-to').value = '';
+            document.getElementById('p-sort').value = 'CREATED_DESC';
+            pendingPage = 1;
+            renderPending();
+        }
+
+        function clearResolvedFilters() {
+            document.getElementById('r-status').value = '';
+            document.getElementById('r-severity').value = '';
+            document.getElementById('r-rule').value = '';
+            document.getElementById('r-account').value = '';
+            document.getElementById('r-from').value = '';
+            document.getElementById('r-to').value = '';
+            document.getElementById('r-sort').value = 'CREATED_DESC';
+            resolvedPage = 1;
+            renderResolved();
+        }
+
+        function refreshAlertsPage(pageName) {
+            if (pageName === 'pending') {
+                pendingPage = 1;
+                loadAllAlerts('pending');
+                return;
             }
-        }
-
-        function clearFilters() {
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('severityFilter').value = '';
-            document.getElementById('ruleFilter').value = '';
-            document.getElementById('accountFilter').value = '';
-            document.getElementById('fromFilter').value = '';
-            document.getElementById('toFilter').value = '';
-            document.getElementById('processedFilter').value = '';
-            document.getElementById('sortFilter').value = 'CREATED_DESC';
-            loadAlerts();
-        }
-
-        function refreshAlerts() {
-            loadAlerts();
-            showToast('Alerts refreshed.', 'success');
+            if (pageName === 'resolved') {
+                resolvedPage = 1;
+                loadAllAlerts('resolved');
+                return;
+            }
+            loadAllAlerts('dashboard');
         }
 
         async function changeStatus(id, action) {
@@ -938,7 +978,7 @@
                 }
 
                 showToast(`Alert #${id} updated.`, 'success');
-                loadAlerts();
+                await loadAllAlerts();
             } catch (e) {
                 showToast(`Update failed: ${e.message}`, 'error');
             }
@@ -978,8 +1018,34 @@
             document.getElementById('history-modal').classList.remove('open');
         }
 
+        async function loadAllAlerts(preferredPage) {
+            document.getElementById('pending-loading').classList.add('show');
+            document.getElementById('resolved-loading').classList.add('show');
+            try {
+                const res = await fetch(`${API}/alerts`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                allAlerts = await res.json();
+
+                const activePage = document.querySelector('.page.active')?.id || 'page-dashboard';
+                renderDashboard();
+                renderPending();
+                renderResolved();
+
+                const targetPage = preferredPage || (
+                    activePage === 'page-pending' ? 'pending' :
+                    activePage === 'page-resolved' ? 'resolved' :
+                    'dashboard'
+                );
+                switchPage(targetPage);
+            } catch (e) {
+                showToast(`Failed to load alerts: ${e.message}`, 'error');
+                document.getElementById('pending-loading').classList.remove('show');
+                document.getElementById('resolved-loading').classList.remove('show');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            loadAlerts();
+            loadAllAlerts();
         });
     </script>
 </body>
