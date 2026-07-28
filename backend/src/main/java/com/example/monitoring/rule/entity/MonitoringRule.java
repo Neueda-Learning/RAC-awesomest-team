@@ -12,9 +12,10 @@ public class MonitoringRule {
     @Id
     private Long id;
     private String ruleName;
-    private String ruleType;       // AMOUNT_THRESHOLD, VELOCITY, NEW_PAYEE, DAILY_LIMIT
+    private String ruleType;       // AMOUNT_THRESHOLD, VELOCITY, NEW_PAYEE, DAILY_LIMIT, COMPLEX
     private String severity;       // HIGH, MEDIUM, LOW
     private boolean isActive;
+    private String logicOperator;  // AND, OR (only for COMPLEX rules)
     private BigDecimal thresholdValue;
     private Integer timeWindowMinutes;
     private Integer maxCount;
@@ -52,4 +53,7 @@ public class MonitoringRule {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getLogicOperator() { return logicOperator; }
+    public void setLogicOperator(String logicOperator) { this.logicOperator = logicOperator; }
 }
