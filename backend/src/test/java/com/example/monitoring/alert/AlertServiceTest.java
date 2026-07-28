@@ -81,6 +81,20 @@ public class AlertServiceTest {
 	}
 
 	@Test
+	void close_shouldThrowWhenStatusIsAcknowledged() {
+		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
+		alert.setId(104L);
+		alert.setStatus("ACKNOWLEDGED");
+
+		when(alertRepository.findById(104L)).thenReturn(Optional.of(alert));
+
+		IllegalStateException ex = assertThrows(IllegalStateException.class,
+				() -> alertService.close(104L, "close directly"));
+		assertEquals("Can only close INVESTIGATING alerts. Current status: ACKNOWLEDGED", ex.getMessage());
+		verify(historyRepository, never()).save(any(AlertStatusHistory.class));
+	}
+
+	@Test
 	void startInvestigating_shouldThrowWhenStatusIsInvalid() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(103L);
