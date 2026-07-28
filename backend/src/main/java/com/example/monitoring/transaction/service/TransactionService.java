@@ -11,21 +11,38 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.StreamSupport;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final RuleEngineService ruleEngineService;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Value("${openexchangerates.apiId:da4ca83d160f44168d996e6e3fed6f79}")
+    @SuppressWarnings("unused")
+    private String fxApiId;
+
+    private static final String FX_API_URL = "https://openexchangerates.org/api/latest.json";
+    private static final long FX_CACHE_TTL_MS = 5 * 60 * 1000; // 5分钟缓存
+    private Map<String, Object> fxCache = null;
+    private long fxCacheTime = 0;
 
     public TransactionService(TransactionRepository transactionRepository,
-                              RuleEngineService ruleEngineService) {
+                              RuleEngineService ruleEngineService,
+                              RestTemplate restTemplate,
+                              ObjectMapper objectMapper) {
         this.transactionRepository = transactionRepository;
         this.ruleEngineService = ruleEngineService;
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -71,7 +88,9 @@ public class TransactionService {
     }
 
     public List<Transaction> getAllTransactions() {
-        return (List<Transaction>) transactionRepository.findAll();
+        return StreamSupport
+                .stream(transactionRepository.findAll().spliterator(), false)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public Optional<Transaction> getTransactionById(Long id) {
@@ -88,8 +107,8 @@ public class TransactionService {
     }
 
     /**
-     * 按金额范围和/或日期区间筛选
-     * 前端可以只传其中一组，也可以两组都传
+     * 按金额范围和/或日期区间筛选（支持汇率换算为USD进行比较）
+     * minAmount/maxAmount 单位为 USD，系统会自动将交易转换为 USD 后进行比较
      */
     public List<Transaction> filterTransactions(java.math.BigDecimal minAmount,
                                                 java.math.BigDecimal maxAmount,
@@ -103,23 +122,99 @@ public class TransactionService {
         if (from != null && to != null && from.isAfter(to)) {
             throw new IllegalArgumentException("'from' date must not be after 'to' date");
         }
-        boolean hasAmount = minAmount != null && maxAmount != null;
-        boolean hasDate = from != null && to != null;
 
-        if (hasAmount && hasDate) {
-            return transactionRepository.findByAmountBetweenAndCreatedAtBetween(minAmount, maxAmount, from, to);
-        } else if (hasAmount) {
-            return transactionRepository.findByAmountBetween(minAmount, maxAmount);
-        } else if (hasDate) {
-            return transactionRepository.findByCreatedAtBetween(from, to);
+        // 先获取符合日期条件的交易
+        List<Transaction> candidates;
+        if (from != null && to != null) {
+            candidates = transactionRepository.findByCreatedAtBetween(from, to);
         } else {
-            return getAllTransactions();
+            candidates = new ArrayList<>();
+            transactionRepository.findAll().forEach(candidates::add);
         }
+
+        // 如果没有金额条件，直接返回
+        if (minAmount == null || maxAmount == null) {
+            return candidates;
+        }
+
+        // 获取汇率并按USD范围过滤
+        Map<String, Object> ratesData = getFxRates();
+        if (ratesData == null || ratesData.isEmpty()) {
+            // 汇率获取失败，降级为按原币种过滤（仅USD）
+            return candidates.stream()
+                    .filter(tx -> "USD".equalsIgnoreCase(tx.getCurrency()) &&
+                            tx.getAmount().compareTo(minAmount) >= 0 &&
+                            tx.getAmount().compareTo(maxAmount) <= 0)
+                    .toList();
+        }
+
+        // 用汇率进行转换过滤
+        @SuppressWarnings("unchecked")
+        Map<String, BigDecimal> rates = (Map<String, BigDecimal>) ratesData.get("rates");
+        return candidates.stream()
+                .filter(tx -> {
+                    BigDecimal amountInUsd = convertToUsd(tx.getAmount(), tx.getCurrency(), rates);
+                    return amountInUsd != null &&
+                            amountInUsd.compareTo(minAmount) >= 0 &&
+                            amountInUsd.compareTo(maxAmount) <= 0;
+                })
+                .toList();
+    }
+
+    /**
+     * 获取汇率数据（带缓存，5分钟TTL）
+     */
+    private Map<String, Object> getFxRates() {
+        long now = System.currentTimeMillis();
+        if (fxCache != null && (now - fxCacheTime) < FX_CACHE_TTL_MS) {
+            return fxCache;
+        }
+
+        try {
+            String url = FX_API_URL + "?app_id=" + fxApiId;
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode jsonNode = objectMapper.readTree(response);
+            
+            if (jsonNode.has("rates")) {
+                JsonNode ratesNode = jsonNode.get("rates");
+                Map<String, BigDecimal> rates = new HashMap<>();
+                ratesNode.fieldNames().forEachRemaining(currency ->
+                    rates.put(currency, new BigDecimal(ratesNode.get(currency).asText()))
+                );
+
+                fxCache = new HashMap<>();
+                fxCache.put("rates", rates);
+                fxCacheTime = now;
+                return fxCache;
+            }
+        } catch (Exception e) {
+            // 日志或其他处理，继续返回缓存或null
+            System.err.println("Failed to fetch FX rates: " + e.getMessage());
+        }
+        return fxCache; // 如果失败，返回缓存或null
+    }
+
+    /**
+     * 将指定币种的金额转换为 USD
+     */
+    private BigDecimal convertToUsd(BigDecimal amount, String currency, Map<String, BigDecimal> rates) {
+        if (amount == null || amount.signum() == 0) {
+            return amount;
+        }
+        String currencyCode = (currency != null ? currency : "USD").toUpperCase();
+        if ("USD".equals(currencyCode)) {
+            return amount;
+        }
+        BigDecimal rate = rates.get(currencyCode);
+        if (rate == null || rate.signum() <= 0) {
+            return null;
+        }
+        return amount.divide(rate, 2, RoundingMode.HALF_UP);
     }
 
     private static final String[] ACCOUNTS = {"ACC-001", "ACC-002", "ACC-003", "ACC-004", "ACC-005"};
     private static final String[] PAYEES   = {"ACC-010", "ACC-011", "ACC-012", "PAYEE-A", "PAYEE-B", "PAYEE-C"};
-    private static final String[] CURRENCIES = {"USD", "EUR", "GBP", "CNY"};
+    private static final String[] CURRENCIES = {"USD", "EUR", "GBP", "CNY", "JPY", "AUD", "CAD", "HKD", "SGD", "CHF"};
     // 只生成需要触发规则的类型（不含 SALARY/REFUND 豁免类型）
     private static final TransactionType[] GEN_TYPES = {
         TransactionType.TRANSFER_OUT, TransactionType.DEPOSIT, TransactionType.WITHDRAWAL
@@ -134,8 +229,11 @@ public class TransactionService {
      */
     public List<Transaction> generateMockTransactions(GenerateTransactionsRequest request) {
         int count = request.getCount() != null ? request.getCount() : 100;
-        if (count <= 0 || count > 10000) {
-            throw new IllegalArgumentException("count must be between 1 and 10000");
+        if (count <= 0) {
+            throw new IllegalArgumentException("count must be greater than 0");
+        }
+        if (count > 10000) {
+            throw new IllegalArgumentException("count must not exceed 10000");
         }
 
         BigDecimal minAmount = request.getMinAmount() != null

@@ -48,7 +48,7 @@ public class TransactionServiceTest {
 		request.setPayeeId("PAY-001");
 		request.setAmount(new BigDecimal("123.45"));
 		request.setCurrency(null);
-		request.setTransactionType("DEBIT");
+		request.setTransactionType("TRANSFER_OUT");
 		request.setDescription("test tx");
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
@@ -74,7 +74,9 @@ public class TransactionServiceTest {
 
 		transactionService.filterTransactions(min, max, from, to);
 
-		verify(transactionRepository).findByAmountBetweenAndCreatedAtBetween(min, max, from, to);
+		// After update: filterTransactions now calls findByCreatedAtBetween for date filtering,
+		// then applies FX-based USD conversion for amount filtering
+		verify(transactionRepository).findByCreatedAtBetween(from, to);
 	}
 
 	@Test
@@ -92,9 +94,9 @@ public class TransactionServiceTest {
 			return tx;
 		});
 
-		GenerateTransactionsRequest req = new GenerateTransactionsRequest();
-		req.setCount(3);
-		List<Transaction> generated = transactionService.generateMockTransactions(req);
+		GenerateTransactionsRequest request = new GenerateTransactionsRequest();
+		request.setCount(3);
+		List<Transaction> generated = transactionService.generateMockTransactions(request);
 
 		assertEquals(3, generated.size());
 		verify(transactionRepository, times(3)).save(any(Transaction.class));
@@ -103,10 +105,10 @@ public class TransactionServiceTest {
 
 	@Test
 	void generateMockTransactions_shouldRejectNonPositiveCount() {
-		GenerateTransactionsRequest zeroReq = new GenerateTransactionsRequest();
-		zeroReq.setCount(0);
+		GenerateTransactionsRequest request = new GenerateTransactionsRequest();
+		request.setCount(0);
 		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-				() -> transactionService.generateMockTransactions(zeroReq));
+				() -> transactionService.generateMockTransactions(request));
 		assertEquals("count must be greater than 0", ex.getMessage());
 		verify(transactionRepository, never()).save(any(Transaction.class));
 		verify(ruleEngineService, never()).evaluate(any(Transaction.class));
