@@ -127,6 +127,48 @@
         .badge-velocity { background: #e3f2fd; color: #1565c0; }
         .badge-payee { background: #f3e5f5; color: #6a1b9a; }
         .badge-daily { background: #fff8e1; color: #f57f17; }
+        .badge-complex { background: #e8eaf6; color: #3949ab; }
+
+        /* Complex rule condition builder */
+        .complex-builder {
+            grid-column: 1 / -1;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            background: #fafafa;
+        }
+        .logic-op-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .logic-op-row label { font-size: 13px; font-weight: 600; color: #555; }
+        .logic-op-select {
+            padding: 7px 14px; border: 1.5px solid #667eea; border-radius: 6px;
+            font-size: 13px; font-weight: 600; color: #667eea; background: #f0f3ff; cursor: pointer;
+        }
+        .conditions-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+        .condition-row {
+            display: flex; gap: 8px; align-items: center;
+            background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px;
+        }
+        .condition-type-sel {
+            flex: 0 0 170px; padding: 7px 10px; border: 1.5px solid #e0e0e0;
+            border-radius: 6px; font-size: 13px; background: #fafafa;
+        }
+        .cond-params { flex: 1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .cond-params input {
+            flex: 1; min-width: 90px; padding: 7px 10px;
+            border: 1.5px solid #e0e0e0; border-radius: 6px; font-size: 13px;
+        }
+        .cond-params span { font-size: 12px; color: #888; white-space: nowrap; }
+        .btn-rm-cond {
+            background: none; border: none; color: #e94560; font-size: 18px;
+            cursor: pointer; padding: 0 4px; flex-shrink: 0; line-height: 1;
+        }
+        .btn-rm-cond:hover { color: #c0392b; }
+        .btn-add-cond {
+            width: 100%; padding: 9px; background: #f0f3ff; color: #667eea;
+            border: 2px dashed #667eea; border-radius: 8px; font-size: 13px;
+            font-weight: 600; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-add-cond:hover { background: #e8edff; }
 
         /* Toggle switch */
         .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
@@ -379,6 +421,7 @@
                                     <option value="VELOCITY">⚡ Velocity</option>
                                     <option value="NEW_PAYEE">🆕 New Payee</option>
                                     <option value="DAILY_LIMIT">📅 Daily Limit</option>
+                                    <option value="COMPLEX">🔗 Complex (AND/OR)</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -464,6 +507,7 @@
     <script>
         const API = 'http://localhost:8080';
         let deleteTargetId = null;
+        let conditionCounter = 0;
 
         // ─── Navigation ─────────────────────────────────────────────────────────
         function showPage(name, el, title) {
@@ -505,9 +549,117 @@
             } else if (type === 'NEW_PAYEE') {
                 container.innerHTML = `
                     <div class="param-hint full">💡 Alert triggers on the first transaction from an account to a payee that has never been seen before. No extra parameters needed.</div>`;
+            } else if (type === 'COMPLEX') {
+                container.innerHTML = buildComplexBuilder(prefix);
             } else {
                 container.innerHTML = '';
             }
+        }
+
+        // ─── Complex Rule Builder ────────────────────────────────────────────────
+        function buildComplexBuilder(prefix) {
+            return `<div class="complex-builder">
+                <div class="param-hint" style="margin-bottom:12px;">
+                    🔗 Combine multiple conditions with AND/OR logic.
+                    <b>AND</b>: all conditions must match. <b>OR</b>: any condition triggers the alert.
+                </div>
+                <div class="logic-op-row">
+                    <label>Logic Operator:</label>
+                    <select class="logic-op-select" id="${prefix}-logicOperator">
+                        <option value="AND">AND — all must match</option>
+                        <option value="OR">OR — any one matches</option>
+                    </select>
+                </div>
+                <div class="conditions-list" id="${prefix}-conditions-list"></div>
+                <button type="button" class="btn-add-cond" onclick="addConditionRow('${prefix}')">+ Add Condition</button>
+            </div>`;
+        }
+
+        function addConditionRow(prefix, existing) {
+            const idx = conditionCounter++;
+            const row = document.createElement('div');
+            row.className = 'condition-row';
+            row.dataset.conditionId = existing ? (existing.id || '') : '';
+            row.dataset.idx = idx;
+
+            row.innerHTML = `
+                <select class="condition-type-sel" onchange="updateConditionParams(this, ${idx})">
+                    <option value="">-- Type --</option>
+                    <option value="AMOUNT_THRESHOLD">💰 Amount Threshold</option>
+                    <option value="VELOCITY">⚡ Velocity</option>
+                    <option value="NEW_PAYEE">🆕 New Payee</option>
+                    <option value="DAILY_LIMIT">📅 Daily Limit</option>
+                    <option value="TIME_OF_DAY">🕐 Time of Day</option>
+                </select>
+                <div class="cond-params" id="cond-params-${idx}">
+                    <span>Select a type</span>
+                </div>
+                <button type="button" class="btn-rm-cond" onclick="this.parentElement.remove()" title="Remove">✕</button>`;
+
+            document.getElementById(`${prefix}-conditions-list`).appendChild(row);
+
+            if (existing) {
+                row.querySelector('.condition-type-sel').value = existing.conditionType;
+                updateConditionParams(row.querySelector('.condition-type-sel'), idx, existing);
+            }
+        }
+
+        function updateConditionParams(sel, idx, prefill) {
+            const type = sel.value;
+            const container = document.getElementById(`cond-params-${idx}`);
+            const v = (key) => prefill ? (prefill[key] != null ? prefill[key] : '') : '';
+
+            if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+                const lbl = type === 'AMOUNT_THRESHOLD' ? 'Threshold ($)' : 'Daily Limit ($)';
+                container.innerHTML = `<span>${lbl}</span>
+                    <input type="number" id="cond-threshold-${idx}" placeholder="e.g. 10000" step="0.01" min="0.01" value="${v('thresholdValue')}">`;
+            } else if (type === 'VELOCITY') {
+                container.innerHTML = `<span>Window (min)</span>
+                    <input type="number" id="cond-tw-${idx}" placeholder="10" min="1" value="${v('timeWindowMinutes')}">
+                    <span>Max txns</span>
+                    <input type="number" id="cond-mc-${idx}" placeholder="5" min="1" value="${v('maxCount')}">`;
+            } else if (type === 'NEW_PAYEE') {
+                container.innerHTML = `<span>First-time payee — no params needed</span>`;
+            } else if (type === 'TIME_OF_DAY') {
+                container.innerHTML = `<span>Business hours</span>
+                    <input type="number" id="cond-start-${idx}" placeholder="9" min="0" max="23" value="${prefill && prefill.startHour != null ? prefill.startHour : 9}" style="max-width:70px;">
+                    <span>to</span>
+                    <input type="number" id="cond-end-${idx}" placeholder="17" min="0" max="23" value="${prefill && prefill.endHour != null ? prefill.endHour : 17}" style="max-width:70px;">
+                    <span style="color:#e94560;">Alert outside these hours</span>`;
+            } else {
+                container.innerHTML = `<span>Select a type</span>`;
+            }
+        }
+
+        function collectConditions(prefix) {
+            const rows = document.querySelectorAll(`#${prefix}-conditions-list .condition-row`);
+            if (rows.length === 0) { showToast('Please add at least one condition', 'error'); return null; }
+            const conditions = [];
+            for (const row of rows) {
+                const idx = row.dataset.idx;
+                const type = row.querySelector('.condition-type-sel').value;
+                if (!type) { showToast('Please select a type for all conditions', 'error'); return null; }
+                const cond = { conditionType: type };
+                if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+                    const val = document.getElementById(`cond-threshold-${idx}`)?.value;
+                    if (!val || parseFloat(val) <= 0) { showToast('Enter a valid threshold for all conditions', 'error'); return null; }
+                    cond.thresholdValue = parseFloat(val);
+                } else if (type === 'VELOCITY') {
+                    const tw = document.getElementById(`cond-tw-${idx}`)?.value;
+                    const mc = document.getElementById(`cond-mc-${idx}`)?.value;
+                    if (!tw || !mc) { showToast('Fill in velocity params for all conditions', 'error'); return null; }
+                    cond.timeWindowMinutes = parseInt(tw);
+                    cond.maxCount = parseInt(mc);
+                } else if (type === 'TIME_OF_DAY') {
+                    const sh = document.getElementById(`cond-start-${idx}`)?.value;
+                    const eh = document.getElementById(`cond-end-${idx}`)?.value;
+                    if (sh === '' || eh === '') { showToast('Enter start/end hours for time-of-day condition', 'error'); return null; }
+                    cond.startHour = parseInt(sh);
+                    cond.endHour = parseInt(eh);
+                }
+                conditions.push(cond);
+            }
+            return conditions;
         }
 
         function getParamsFromForm(prefix) {
@@ -575,8 +727,8 @@
         function renderRuleRow(r) {
             // Jackson 将 boolean isActive 字段序列化为 "active"（去掉 is 前缀）
             const isActive = r.active !== undefined ? r.active : (r.isActive !== undefined ? r.isActive : false);
-            const typeLabel = { AMOUNT_THRESHOLD: '💰 Amount', VELOCITY: '⚡ Velocity', NEW_PAYEE: '🆕 New Payee', DAILY_LIMIT: '📅 Daily Limit' };
-            const typeBadge = { AMOUNT_THRESHOLD: 'badge-amount', VELOCITY: 'badge-velocity', NEW_PAYEE: 'badge-payee', DAILY_LIMIT: 'badge-daily' };
+            const typeLabel = { AMOUNT_THRESHOLD: '💰 Amount', VELOCITY: '⚡ Velocity', NEW_PAYEE: '🆕 New Payee', DAILY_LIMIT: '📅 Daily Limit', COMPLEX: '🔗 Complex' };
+            const typeBadge = { AMOUNT_THRESHOLD: 'badge-amount', VELOCITY: 'badge-velocity', NEW_PAYEE: 'badge-payee', DAILY_LIMIT: 'badge-daily', COMPLEX: 'badge-complex' };
             const sevBadge = { HIGH: 'badge-high', MEDIUM: 'badge-medium', LOW: 'badge-low' };
 
             let params = '-';
@@ -584,6 +736,7 @@
             else if (r.ruleType === 'DAILY_LIMIT') params = `Daily Limit: $${r.thresholdValue || '-'}`;
             else if (r.ruleType === 'VELOCITY') params = `${r.timeWindowMinutes}min / max ${r.maxCount} txn`;
             else if (r.ruleType === 'NEW_PAYEE') params = 'First-time payee';
+            else if (r.ruleType === 'COMPLEX') params = `${r.logicOperator || 'AND'} logic`;
 
             return `<tr>
                 <td style="color:#aaa;font-size:13px;">#${r.id}</td>
@@ -639,10 +792,17 @@
             if (!ruleName) { showToast('Please enter a rule name', 'error'); return; }
             if (!ruleType) { showToast('Please select a rule type', 'error'); return; }
 
-            const extraParams = getParamsFromForm('add');
-            if (extraParams === null) return;
-
-            const payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+            let payload, conditions = [];
+            if (ruleType === 'COMPLEX') {
+                const logicOperator = document.getElementById('add-logicOperator').value;
+                conditions = collectConditions('add');
+                if (!conditions) return;
+                payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
+            } else {
+                const extraParams = getParamsFromForm('add');
+                if (extraParams === null) return;
+                payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+            }
 
             try {
                 const res = await fetch(`${API}/rules`, {
@@ -651,6 +811,13 @@
                     body: JSON.stringify(payload)
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
+                const newRule = await res.json();
+                for (const cond of conditions) {
+                    await fetch(`${API}/rules/${newRule.id}/conditions`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cond)
+                    });
+                }
                 showToast('✅ Rule created successfully!', 'success');
                 clearAddForm();
                 setTimeout(() => showPage('rules-list', document.querySelectorAll('.nav-item')[0], '📋 All Rules'), 800);
@@ -665,6 +832,7 @@
             document.getElementById('add-severity').value = 'LOW';
             document.getElementById('add-isActive').checked = true;
             document.getElementById('add-dynamic-params').innerHTML = '';
+            conditionCounter = 0;
         }
 
         // ─── Edit Rule ────────────────────────────────────────────────────────────
@@ -677,15 +845,13 @@
                 document.getElementById('edit-ruleName').value = r.ruleName;
                 document.getElementById('edit-ruleType').value = r.ruleType;
                 document.getElementById('edit-ruleType-display').value =
-                    { AMOUNT_THRESHOLD: 'Amount Threshold', VELOCITY: 'Velocity', NEW_PAYEE: 'New Payee', DAILY_LIMIT: 'Daily Limit' }[r.ruleType] || r.ruleType;
+                    { AMOUNT_THRESHOLD: 'Amount Threshold', VELOCITY: 'Velocity', NEW_PAYEE: 'New Payee', DAILY_LIMIT: 'Daily Limit', COMPLEX: 'Complex Rule' }[r.ruleType] || r.ruleType;
                 document.getElementById('edit-severity').value = r.severity;
                 const isActive = r.active !== undefined ? r.active : r.isActive;
                 document.getElementById('edit-isActive').checked = isActive;
 
-                // render dynamic params
                 updateDynamicParamsEdit(r.ruleType);
 
-                // fill values
                 if (r.ruleType === 'AMOUNT_THRESHOLD' || r.ruleType === 'DAILY_LIMIT') {
                     const el = document.getElementById('edit-thresholdValue');
                     if (el) el.value = r.thresholdValue || '';
@@ -694,6 +860,12 @@
                     const mc = document.getElementById('edit-maxCount');
                     if (tw) tw.value = r.timeWindowMinutes || '';
                     if (mc) mc.value = r.maxCount || '';
+                } else if (r.ruleType === 'COMPLEX') {
+                    const logicSel = document.getElementById('edit-logicOperator');
+                    if (logicSel) logicSel.value = r.logicOperator || 'AND';
+                    const condRes = await fetch(`${API}/rules/${id}/conditions`);
+                    const conditions = await condRes.json();
+                    for (const cond of conditions) addConditionRow('edit', cond);
                 }
 
                 document.getElementById('editModal').classList.add('open');
@@ -721,6 +893,8 @@
                         <label>Max Transactions Allowed *</label>
                         <input type="number" id="edit-maxCount" min="1">
                     </div>`;
+            } else if (type === 'COMPLEX') {
+                container.innerHTML = buildComplexBuilder('edit');
             } else {
                 container.innerHTML = `<div class="param-hint full">No extra parameters for NEW_PAYEE rule.</div>`;
             }
@@ -735,10 +909,17 @@
 
             if (!ruleName) { showToast('Rule name is required', 'error'); return; }
 
-            const extraParams = getParamsFromForm('edit');
-            if (extraParams === null) return;
-
-            const payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+            let payload, conditions = null;
+            if (ruleType === 'COMPLEX') {
+                const logicOperator = document.getElementById('edit-logicOperator').value;
+                conditions = collectConditions('edit');
+                if (!conditions) return;
+                payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
+            } else {
+                const extraParams = getParamsFromForm('edit');
+                if (extraParams === null) return;
+                payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+            }
 
             try {
                 const res = await fetch(`${API}/rules/${id}`, {
@@ -747,6 +928,15 @@
                     body: JSON.stringify(payload)
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
+                if (ruleType === 'COMPLEX' && conditions !== null) {
+                    await fetch(`${API}/rules/${id}/conditions`, { method: 'DELETE' });
+                    for (const cond of conditions) {
+                        await fetch(`${API}/rules/${id}/conditions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(cond)
+                        });
+                    }
+                }
                 showToast('✅ Rule updated!', 'success');
                 closeModal();
                 loadRules();
@@ -755,7 +945,10 @@
             }
         }
 
-        function closeModal() { document.getElementById('editModal').classList.remove('open'); }
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('open');
+            conditionCounter = 0;
+        }
 
         // ─── Delete Rule ──────────────────────────────────────────────────────────
         function openConfirmDelete(id, name) {

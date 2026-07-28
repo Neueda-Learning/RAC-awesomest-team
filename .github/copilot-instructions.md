@@ -79,6 +79,7 @@ When writing functions, always:
 - Keep internal documentation files in `/documents`
 - Add code comments for non-obvious logic (especially complex queries or rules)
 - Document API endpoint behavior in controllers or separate API docs
+- Add bugfix documentation for any resolved issues that may affect future development
 
 ## File Organization
 - Keep generated/compiled output out of Git (`.gitignore` enforced)

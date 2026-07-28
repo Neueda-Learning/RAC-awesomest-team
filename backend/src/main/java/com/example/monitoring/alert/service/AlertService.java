@@ -74,12 +74,12 @@ public class AlertService {
         return changeStatus(alertId, "INVESTIGATING", notes);
     }
 
-    // ACKNOWLEDGED or INVESTIGATING → CLOSED
+    // INVESTIGATING → CLOSED
     public Alert close(Long alertId, String notes) {
         Alert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new IllegalArgumentException("Alert not found: " + alertId));
-        if (!"ACKNOWLEDGED".equals(alert.getStatus()) && !"INVESTIGATING".equals(alert.getStatus())) {
-            throw new IllegalStateException("Can only close ACKNOWLEDGED or INVESTIGATING alerts. Current status: " + alert.getStatus());
+        if (!"INVESTIGATING".equals(alert.getStatus())) {
+            throw new IllegalStateException("Can only close INVESTIGATING alerts. Current status: " + alert.getStatus());
         }
         return changeStatus(alertId, "CLOSED", notes);
     }
