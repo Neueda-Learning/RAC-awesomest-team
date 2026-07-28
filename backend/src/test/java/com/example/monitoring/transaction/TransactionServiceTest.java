@@ -92,7 +92,9 @@ public class TransactionServiceTest {
 			return tx;
 		});
 
-		List<Transaction> generated = transactionService.generateMockTransactions(3);
+		GenerateTransactionsRequest req = new GenerateTransactionsRequest();
+		req.setCount(3);
+		List<Transaction> generated = transactionService.generateMockTransactions(req);
 
 		assertEquals(3, generated.size());
 		verify(transactionRepository, times(3)).save(any(Transaction.class));
@@ -101,8 +103,10 @@ public class TransactionServiceTest {
 
 	@Test
 	void generateMockTransactions_shouldRejectNonPositiveCount() {
+		GenerateTransactionsRequest zeroReq = new GenerateTransactionsRequest();
+		zeroReq.setCount(0);
 		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-				() -> transactionService.generateMockTransactions(0));
+				() -> transactionService.generateMockTransactions(zeroReq));
 		assertEquals("count must be greater than 0", ex.getMessage());
 		verify(transactionRepository, never()).save(any(Transaction.class));
 		verify(ruleEngineService, never()).evaluate(any(Transaction.class));
