@@ -84,3 +84,24 @@ UPDATE monitoring_rule SET severity = 'MEDIUM' WHERE rule_type = 'VELOCITY';
 UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'NEW_PAYEE';
 UPDATE monitoring_rule SET severity = 'HIGH' WHERE rule_type = 'DAILY_LIMIT';
 
+-- 复杂规则支持：给 monitoring_rule 加 logic_operator 列（AND/OR），幂等写法
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'monitoring_rule' AND COLUMN_NAME = 'logic_operator');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE monitoring_rule ADD COLUMN logic_operator VARCHAR(3) DEFAULT NULL', 'SELECT 1');
+PREPARE add_col_stmt FROM @alter_sql;
+EXECUTE add_col_stmt;
+DEALLOCATE PREPARE add_col_stmt;
+
+-- 复杂规则的子条件表
+CREATE TABLE IF NOT EXISTS rule_condition (
+    id                  BIGINT        AUTO_INCREMENT PRIMARY KEY,
+    rule_id             BIGINT        NOT NULL,
+    condition_type      VARCHAR(50)   NOT NULL,
+    threshold_value     DECIMAL(15, 2),
+    time_window_minutes INT,
+    max_count           INT,
+    start_hour          INT,
+    end_hour            INT,
+    CONSTRAINT fk_condition_rule FOREIGN KEY (rule_id) REFERENCES monitoring_rule (id) ON DELETE CASCADE
+);
+
