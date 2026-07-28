@@ -2,14 +2,19 @@ package com.example.monitoring.transaction.service;
 
 import com.example.monitoring.rule.service.RuleEngineService;
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
+import com.example.monitoring.transaction.dto.GenerateTransactionsRequest;
 import com.example.monitoring.transaction.entity.Transaction;
 import com.example.monitoring.transaction.entity.TransactionType;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class TransactionService {
@@ -110,5 +115,86 @@ public class TransactionService {
         } else {
             return getAllTransactions();
         }
+    }
+
+    private static final String[] ACCOUNTS = {"ACC-001", "ACC-002", "ACC-003", "ACC-004", "ACC-005"};
+    private static final String[] PAYEES   = {"ACC-010", "ACC-011", "ACC-012", "PAYEE-A", "PAYEE-B", "PAYEE-C"};
+    private static final String[] CURRENCIES = {"USD", "EUR", "GBP", "CNY"};
+    // 只生成需要触发规则的类型（不含 SALARY/REFUND 豁免类型）
+    private static final TransactionType[] GEN_TYPES = {
+        TransactionType.TRANSFER_OUT, TransactionType.DEPOSIT, TransactionType.WITHDRAWAL
+    };
+
+    /**
+     * 批量生成模拟交易数据，用于测试规则引擎。
+     *
+     * @param request 生成参数（数量、金额范围、时间范围、时间步长）
+     * @return 已保存并触发规则评估的交易列表
+     * @throws IllegalArgumentException 如果参数不合法
+     */
+    public List<Transaction> generateMockTransactions(GenerateTransactionsRequest request) {
+        int count = request.getCount() != null ? request.getCount() : 100;
+        if (count <= 0 || count > 10000) {
+            throw new IllegalArgumentException("count must be between 1 and 10000");
+        }
+
+        BigDecimal minAmount = request.getMinAmount() != null
+                ? request.getMinAmount() : BigDecimal.valueOf(10);
+        BigDecimal maxAmount = request.getMaxAmount() != null
+                ? request.getMaxAmount() : BigDecimal.valueOf(20000);
+        if (minAmount.compareTo(maxAmount) > 0) {
+            throw new IllegalArgumentException("minAmount must not be greater than maxAmount");
+        }
+
+        LocalDateTime startAt = request.getStartAt() != null
+                ? request.getStartAt() : LocalDateTime.now().minusDays(7);
+        LocalDateTime endAt = request.getEndAt() != null
+                ? request.getEndAt() : LocalDateTime.now();
+        if (startAt.isAfter(endAt)) {
+            throw new IllegalArgumentException("startAt must not be after endAt");
+        }
+
+        // 时间步长（秒），默认平均分布在时间区间内
+        long totalSeconds = java.time.Duration.between(startAt, endAt).getSeconds();
+        long stepSeconds = request.getStepSeconds() != null
+                ? request.getStepSeconds()
+                : Math.max(1, totalSeconds / count);
+
+        Random random = new Random();
+        List<Transaction> result = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            TransactionType txType = GEN_TYPES[random.nextInt(GEN_TYPES.length)];
+            String accountId = ACCOUNTS[random.nextInt(ACCOUNTS.length)];
+
+            // TRANSFER_OUT 需要 payeeId，DEPOSIT/WITHDRAWAL 不需要
+            String payeeId = txType.requiresPayee()
+                    ? PAYEES[random.nextInt(PAYEES.length)]
+                    : null;
+
+            // 在金额范围内随机生成
+            double range = maxAmount.subtract(minAmount).doubleValue();
+            BigDecimal amount = minAmount.add(
+                    BigDecimal.valueOf(random.nextDouble() * range)
+            ).setScale(2, RoundingMode.HALF_UP);
+
+            String currency = CURRENCIES[random.nextInt(CURRENCIES.length)];
+
+            // 在时间区间内按步长递增
+            LocalDateTime createdAt = startAt.plusSeconds((long) i * stepSeconds);
+            if (createdAt.isAfter(endAt)) {
+                createdAt = endAt;
+            }
+
+            Transaction tx = new Transaction(
+                    accountId, payeeId, amount, currency,
+                    txType.name(), "Auto-generated #" + (i + 1), createdAt
+            );
+            Transaction saved = transactionRepository.save(tx);
+            ruleEngineService.evaluate(saved);
+            result.add(saved);
+        }
+
+        return result;
     }
 }
