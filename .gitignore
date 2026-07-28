@@ -1,5 +1,6 @@
 # Maven build output
 /backend/target/
+**/target/
 
 # IntelliJ IDEA
 /.idea/
@@ -41,4 +42,8 @@ application-dev.properties
 !.idea/inspectionProfiles/**
 !.idea/runConfigurations/
 !.idea/runConfigurations/**
+
+# Local IntelliJ caches
+.idea/ultimate-rest-api-cache.xml
+.idea/ultimate-rest-history.xml
 
