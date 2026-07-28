@@ -6,15 +6,18 @@
 CREATE TABLE IF NOT EXISTS transaction (
     id              BIGINT        AUTO_INCREMENT PRIMARY KEY,
     account_id      VARCHAR(50)   NOT NULL,
-    payee_id        VARCHAR(50)   NOT NULL,
+    payee_id        VARCHAR(50),
     amount          DECIMAL(15, 2) NOT NULL,
     currency        VARCHAR(3)    NOT NULL DEFAULT 'USD',
-    transaction_type VARCHAR(20)   NOT NULL,  -- DEBIT, CREDIT
+    transaction_type VARCHAR(20)   NOT NULL,  -- SALARY, REFUND, TRANSFER_OUT, DEPOSIT, WITHDRAWAL
     description     VARCHAR(255),
     created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_account_created (account_id, created_at),
     INDEX idx_payee (payee_id)
 );
+
+-- 兼容已存在的旧表结构：允许 payee_id 为空（用于存款/取款）
+ALTER TABLE transaction MODIFY COLUMN payee_id VARCHAR(50) NULL;
 
 -- 监控规则表
 CREATE TABLE IF NOT EXISTS monitoring_rule (
@@ -75,8 +78,7 @@ INSERT INTO monitoring_rule (rule_name, rule_type, severity, is_active, threshol
 SELECT 'Daily Limit Exceeded', 'DAILY_LIMIT', 'HIGH', TRUE, 50000.00, NULL, NULL
 WHERE NOT EXISTS (SELECT 1 FROM monitoring_rule WHERE rule_name = 'Daily Limit Exceeded');
 
--- 确保所有规则的 severity 与规则类型保持一致
-
+-- 统一默认告警等级（对已存在规则也生效）
 UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'AMOUNT_THRESHOLD';
 UPDATE monitoring_rule SET severity = 'MEDIUM' WHERE rule_type = 'VELOCITY';
 UPDATE monitoring_rule SET severity = 'LOW' WHERE rule_type = 'NEW_PAYEE';
