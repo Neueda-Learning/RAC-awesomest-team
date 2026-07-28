@@ -7,6 +7,7 @@ import com.example.monitoring.rule.entity.RuleCondition;
 import com.example.monitoring.rule.repository.MonitoringRuleRepository;
 import com.example.monitoring.rule.repository.RuleConditionRepository;
 import com.example.monitoring.transaction.entity.Transaction;
+import com.example.monitoring.transaction.entity.TransactionType;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +36,11 @@ public class RuleEngineService {
     }
 
     public void evaluate(Transaction transaction) {
+        TransactionType transactionType = TransactionType.from(transaction.getTransactionType());
+        if (transactionType.isAlertExempt()) {
+            return;
+        }
+
         List<MonitoringRule> activeRules = ruleRepository.findByIsActive(true);
         for (MonitoringRule rule : activeRules) {
             boolean triggered = "COMPLEX".equals(rule.getRuleType())
@@ -94,6 +100,11 @@ public class RuleEngineService {
     }
 
     private boolean checkNewPayee(Transaction tx) {
+    // 规则3：向从未出现过的收款方转账
+    private boolean evaluateNewPayee(Transaction tx, MonitoringRule rule) {
+        if (tx.getPayeeId() == null || tx.getPayeeId().isBlank()) {
+            return false;
+        }
         int previousCount = transactionRepository.countPreviousTransactionsToPayee(
                 tx.getAccountId(), tx.getPayeeId(), tx.getId());
         return previousCount == 0;

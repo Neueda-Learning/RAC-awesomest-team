@@ -11,7 +11,6 @@ public class CreateTransactionRequest {
     @NotBlank(message = "accountId is required")
     private String accountId;
 
-    @NotBlank(message = "payeeId is required")
     private String payeeId;
 
     @NotNull(message = "amount is required")
@@ -21,7 +20,7 @@ public class CreateTransactionRequest {
     private String currency = "USD";
 
     @NotBlank(message = "transactionType is required")
-    private String transactionType;  // DEBIT or CREDIT
+    private String transactionType;  // SALARY, REFUND, TRANSFER_OUT, DEPOSIT, WITHDRAWAL
 
     private String description;
 
