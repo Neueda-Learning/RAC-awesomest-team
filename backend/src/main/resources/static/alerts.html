@@ -399,7 +399,7 @@
                 return `<div class="btn-row"><button class="btn btn-sm btn-primary" onclick="changeStatus(${id}, 'acknowledge')">Acknowledge</button><button class="btn btn-sm btn-outline" onclick="openHistory(${id})">History</button></div>`;
             }
             if (alert.status === 'ACKNOWLEDGED') {
-                return `<div class="btn-row"><button class="btn btn-sm btn-primary" onclick="changeStatus(${id}, 'investigate')">Investigate</button><button class="btn btn-sm btn-outline" onclick="changeStatus(${id}, 'close')">Close</button><button class="btn btn-sm btn-outline" onclick="changeStatus(${id}, 'dismiss')">Dismiss</button><button class="btn btn-sm btn-outline" onclick="openHistory(${id})">History</button></div>`;
+                return `<div class="btn-row"><button class="btn btn-sm btn-primary" onclick="changeStatus(${id}, 'investigate')">Investigate</button><button class="btn btn-sm btn-outline" onclick="changeStatus(${id}, 'dismiss')">Dismiss</button><button class="btn btn-sm btn-outline" onclick="openHistory(${id})">History</button></div>`;
             }
             if (alert.status === 'INVESTIGATING') {
                 return `<div class="btn-row"><button class="btn btn-sm btn-outline" onclick="changeStatus(${id}, 'close')">Close</button><button class="btn btn-sm btn-outline" onclick="changeStatus(${id}, 'dismiss')">Dismiss</button><button class="btn btn-sm btn-outline" onclick="openHistory(${id})">History</button></div>`;
