@@ -312,693 +312,692 @@
 </head>
 <body>
 
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <h2>⚙️ Rules</h2>
-            <p>Rule Engine</p>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <h2>⚙️ Rules</h2>
+        <p>Rule Engine</p>
+    </div>
+    <nav class="nav-section">
+        <div class="nav-section-title">Menu</div>
+        <div class="nav-item active" onclick="showPage('rules-list', this, '📋 All Rules')">
+            <span class="icon">📋</span>
+            <span>All Rules</span>
         </div>
-        <nav class="nav-section">
-            <div class="nav-section-title">Menu</div>
-            <div class="nav-item active" onclick="showPage('rules-list', this, '📋 All Rules')">
-                <span class="icon">📋</span>
-                <span>All Rules</span>
-            </div>
-            <div class="nav-item" onclick="showPage('add-rule', this, '➕ Add New Rule')">
-                <span class="icon">➕</span>
-                <span>Add New Rule</span>
-            </div>
-            <div class="nav-section-title" style="margin-top:20px;">Quick Links</div>
-            <div class="nav-item" onclick="window.open('/transactions.html','_self')">
-                <span class="icon">💸</span>
-                <span>Transactions</span>
-            </div>
-            <div class="nav-item" onclick="window.open('/alerts.html','_self')">
-                <span class="icon">🚨</span>
-                <span>Alerts</span>
-            </div>
-        </nav>
-    </aside>
-
-    <main class="main">
-        <div class="top-bar">
-            <div class="page-title" id="pageTitle">📋 All Rules</div>
-            <div id="top-bar-actions"></div>
+        <div class="nav-item" onclick="showPage('add-rule', this, '➕ Add New Rule')">
+            <span class="icon">➕</span>
+            <span>Add New Rule</span>
         </div>
-
-        <div class="content-area">
-
-            <!-- Rules List -->
-            <div id="page-rules-list" class="page active">
-                <div class="stats-grid">
-                    <div class="stat-card blue">
-                        <div class="stat-icon">📋</div>
-                        <div class="stat-value" id="stat-total">-</div>
-                        <div class="stat-label">Total Rules</div>
-                    </div>
-                    <div class="stat-card green">
-                        <div class="stat-icon">✅</div>
-                        <div class="stat-value" id="stat-active">-</div>
-                        <div class="stat-label">Active Rules</div>
-                    </div>
-                    <div class="stat-card orange">
-                        <div class="stat-icon">⏸️</div>
-                        <div class="stat-value" id="stat-inactive">-</div>
-                        <div class="stat-label">Inactive Rules</div>
-                    </div>
-                    <div class="stat-card red">
-                        <div class="stat-icon">🔴</div>
-                        <div class="stat-value" id="stat-high">-</div>
-                        <div class="stat-label">HIGH Severity</div>
-                    </div>
-                </div>
-
-                <div class="section-header">
-                    <div class="section-title">Monitoring Rules</div>
-                    <div style="display:flex;gap:10px;">
-                        <button class="btn btn-outline" onclick="loadRules()">🔄 Refresh</button>
-                        <button class="btn btn-primary" onclick="showPage('add-rule', document.querySelectorAll('.nav-item')[1], '➕ Add New Rule')">➕ Add New Rule</button>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div id="rules-loading"><div class="spinner"></div></div>
-                    <table id="rules-table" style="display:none;">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Rule Name</th>
-                                <th>Type</th>
-                                <th>Severity</th>
-                                <th>Parameters</th>
-                                <th>Active</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="rules-tbody"></tbody>
-                    </table>
-                    <div id="rules-empty" class="empty" style="display:none;">
-                        <div class="empty-icon">📭</div>
-                        <p>No rules found. <a href="#" onclick="showPage('add-rule', document.querySelectorAll('.nav-item')[1], '➕ Add New Rule')">Add one now</a></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add Rule -->
-            <div id="page-add-rule" class="page">
-                <div style="max-width:640px;">
-                    <div class="card" style="padding:32px;">
-                        <h3 style="font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #f0f2f5;">➕ Add New Rule</h3>
-                        <div class="form-grid">
-                            <div class="form-group full">
-                                <label>Rule Name *</label>
-                                <input type="text" id="add-ruleName" placeholder="e.g. High Value Alert">
-                            </div>
-                            <div class="form-group">
-                                <label>Rule Type *</label>
-                                <select id="add-ruleType" onchange="updateDynamicParams('add')">
-                                    <option value="">-- Select Type --</option>
-                                    <option value="AMOUNT_THRESHOLD">💰 Amount Threshold</option>
-                                    <option value="VELOCITY">⚡ Velocity</option>
-                                    <option value="NEW_PAYEE">🆕 New Payee</option>
-                                    <option value="DAILY_LIMIT">📅 Daily Limit</option>
-                                    <option value="COMPLEX">🔗 Complex (AND/OR)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Severity *</label>
-                                <select id="add-severity">
-                                    <option value="LOW">🔵 LOW</option>
-                                    <option value="MEDIUM">🟡 MEDIUM</option>
-                                    <option value="HIGH">🔴 HIGH</option>
-                                </select>
-                            </div>
-                            <div class="dynamic-params" id="add-dynamic-params"></div>
-                            <div class="form-group full">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="add-isActive" checked>
-                                    <label for="add-isActive">Enable this rule immediately</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-actions">
-                            <button class="btn btn-outline" onclick="clearAddForm()">🔄 Clear</button>
-                            <button class="btn btn-primary" onclick="submitRule()">✅ Save Rule</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <div class="nav-section-title" style="margin-top:20px;">Quick Links</div>
+        <div class="nav-item" onclick="window.open('/transactions.html','_self')">
+            <span class="icon">💸</span>
+            <span>Transactions</span>
         </div>
-    </main>
-
-    <!-- Edit Modal -->
-    <div class="modal-overlay" id="editModal">
-        <div class="modal">
-            <h3>✏️ Edit Rule</h3>
-            <input type="hidden" id="edit-id">
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>Rule Name *</label>
-                    <input type="text" id="edit-ruleName" placeholder="Rule name">
-                </div>
-                <div class="form-group">
-                    <label>Rule Type</label>
-                    <input type="text" id="edit-ruleType-display" disabled>
-                    <input type="hidden" id="edit-ruleType">
-                </div>
-                <div class="form-group">
-                    <label>Severity *</label>
-                    <select id="edit-severity">
-                        <option value="LOW">🔵 LOW</option>
-                        <option value="MEDIUM">🟡 MEDIUM</option>
-                        <option value="HIGH">🔴 HIGH</option>
-                    </select>
-                </div>
-                <div class="dynamic-params" id="edit-dynamic-params"></div>
-                <div class="form-group full">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="edit-isActive">
-                        <label for="edit-isActive">Rule is Active</label>
-                    </div>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
-            </div>
+        <div class="nav-item" onclick="window.open('/alerts.html','_self')">
+            <span class="icon">🚨</span>
+            <span>Alerts</span>
         </div>
+    </nav>
+</aside>
+
+<main class="main">
+    <div class="top-bar">
+        <div class="page-title" id="pageTitle">📋 All Rules</div>
+        <div id="top-bar-actions"></div>
     </div>
 
-    <!-- Confirm Delete Dialog -->
-    <div class="confirm-dialog" id="confirmDialog">
-        <div class="confirm-box">
-            <div class="icon">⚠️</div>
-            <h4>Delete Rule?</h4>
-            <p id="confirm-msg">This action cannot be undone.</p>
-            <div class="actions">
-                <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmDeleteAction()">🗑️ Delete</button>
+    <div class="content-area">
+
+        <!-- Rules List -->
+        <div id="page-rules-list" class="page active">
+            <div class="stats-grid">
+                <div class="stat-card blue">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-value" id="stat-total">-</div>
+                    <div class="stat-label">Total Rules</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="stat-active">-</div>
+                    <div class="stat-label">Active Rules</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-icon">⏸️</div>
+                    <div class="stat-value" id="stat-inactive">-</div>
+                    <div class="stat-label">Inactive Rules</div>
+                </div>
+                <div class="stat-card red">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-value" id="stat-high">-</div>
+                    <div class="stat-label">HIGH Severity</div>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <div class="section-title">Monitoring Rules</div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-outline" onclick="loadRules()">🔄 Refresh</button>
+                    <button class="btn btn-primary" onclick="showPage('add-rule', document.querySelectorAll('.nav-item')[1], '➕ Add New Rule')">➕ Add New Rule</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div id="rules-loading"><div class="spinner"></div></div>
+                <table id="rules-table" style="display:none;">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Rule Name</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Parameters</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="rules-tbody"></tbody>
+                </table>
+                <div id="rules-empty" class="empty" style="display:none;">
+                    <div class="empty-icon">📭</div>
+                    <p>No rules found. <a href="#" onclick="showPage('add-rule', document.querySelectorAll('.nav-item')[1], '➕ Add New Rule')">Add one now</a></p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="toast" class="toast"></div>
-
-    <script>
-        const API = 'http://localhost:8080';
-        let deleteTargetId = null;
-        let conditionCounter = 0;
-
-        // ─── Navigation ─────────────────────────────────────────────────────────
-        function showPage(name, el, title) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById('page-' + name).classList.add('active');
-            if (el) el.classList.add('active');
-            document.getElementById('pageTitle').textContent = title;
-            if (name === 'rules-list') loadRules();
-        }
-
-        // ─── Dynamic Parameters ──────────────────────────────────────────────────
-        function updateDynamicParams(prefix) {
-            const type = document.getElementById(prefix + '-ruleType').value;
-            const container = document.getElementById(prefix + '-dynamic-params');
-
-            if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
-                const label = type === 'AMOUNT_THRESHOLD' ? 'Amount Threshold ($) *' : 'Daily Limit ($) *';
-                const hint = type === 'AMOUNT_THRESHOLD'
-                    ? '💡 Alert triggers when a single transaction exceeds this amount.'
-                    : '💡 Alert triggers when the account\'s daily total exceeds this amount.';
-                container.innerHTML = `
-                    <div class="param-hint">${hint}</div>
-                    <div class="form-group full">
-                        <label>${label}</label>
-                        <input type="number" id="${prefix}-thresholdValue" placeholder="e.g. 10000" step="0.01" min="0.01">
-                    </div>`;
-            } else if (type === 'VELOCITY') {
-                container.innerHTML = `
-                    <div class="param-hint">💡 Alert triggers when the same account makes more than <b>Max Count</b> transactions within the <b>Time Window</b>.</div>
-                    <div class="form-group">
-                        <label>Time Window (minutes) *</label>
-                        <input type="number" id="${prefix}-timeWindowMinutes" placeholder="e.g. 10" min="1">
+        <!-- Add Rule -->
+        <div id="page-add-rule" class="page">
+            <div style="max-width:640px;">
+                <div class="card" style="padding:32px;">
+                    <h3 style="font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #f0f2f5;">➕ Add New Rule</h3>
+                    <div class="form-grid">
+                        <div class="form-group full">
+                            <label>Rule Name *</label>
+                            <input type="text" id="add-ruleName" placeholder="e.g. High Value Alert">
+                        </div>
+                        <div class="form-group">
+                            <label>Rule Type *</label>
+                            <select id="add-ruleType" onchange="updateDynamicParams('add')">
+                                <option value="">-- Select Type --</option>
+                                <option value="AMOUNT_THRESHOLD">💰 Amount Threshold</option>
+                                <option value="VELOCITY">⚡ Velocity</option>
+                                <option value="NEW_PAYEE">🆕 New Payee</option>
+                                <option value="DAILY_LIMIT">📅 Daily Limit</option>
+                                <option value="COMPLEX">🔗 Complex (AND/OR)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Severity *</label>
+                            <select id="add-severity">
+                                <option value="LOW">🔵 LOW</option>
+                                <option value="MEDIUM">🟡 MEDIUM</option>
+                                <option value="HIGH">🔴 HIGH</option>
+                            </select>
+                        </div>
+                        <div class="dynamic-params" id="add-dynamic-params"></div>
+                        <div class="form-group full">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="add-isActive" checked>
+                                <label for="add-isActive">Enable this rule immediately</label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Max Transactions Allowed *</label>
-                        <input type="number" id="${prefix}-maxCount" placeholder="e.g. 5" min="1">
-                    </div>`;
-            } else if (type === 'NEW_PAYEE') {
-                container.innerHTML = `
-                    <div class="param-hint full">💡 Alert triggers on the first transaction from an account to a payee that has never been seen before. No extra parameters needed.</div>`;
-            } else if (type === 'COMPLEX') {
-                container.innerHTML = buildComplexBuilder(prefix);
-            } else {
-                container.innerHTML = '';
-            }
-        }
-
-        // ─── Complex Rule Builder ────────────────────────────────────────────────
-        function buildComplexBuilder(prefix) {
-            return `<div class="complex-builder">
-                <div class="param-hint" style="margin-bottom:12px;">
-                    🔗 Combine multiple conditions with AND/OR logic.
-                    <b>AND</b>: all conditions must match. <b>OR</b>: any condition triggers the alert.
+                    <div class="form-actions">
+                        <button class="btn btn-outline" onclick="clearAddForm()">🔄 Clear</button>
+                        <button class="btn btn-primary" onclick="submitRule()">✅ Save Rule</button>
+                    </div>
                 </div>
-                <div class="logic-op-row">
-                    <label>Logic Operator:</label>
-                    <select class="logic-op-select" id="${prefix}-logicOperator">
-                        <option value="AND">AND — all must match</option>
-                        <option value="OR">OR — any one matches</option>
-                    </select>
-                </div>
-                <div class="conditions-list" id="${prefix}-conditions-list"></div>
-                <button type="button" class="btn-add-cond" onclick="addConditionRow('${prefix}')">+ Add Condition</button>
-            </div>`;
-        }
+            </div>
+        </div>
 
-        function addConditionRow(prefix, existing) {
-            const idx = conditionCounter++;
-            const row = document.createElement('div');
-            row.className = 'condition-row';
-            row.dataset.conditionId = existing ? (existing.id || '') : '';
-            row.dataset.idx = idx;
+    </div>
+</main>
 
-            row.innerHTML = `
-                <select class="condition-type-sel" onchange="updateConditionParams(this, ${idx})">
-                    <option value="">-- Type --</option>
-                    <option value="AMOUNT_THRESHOLD">💰 Amount Threshold</option>
-                    <option value="VELOCITY">⚡ Velocity</option>
-                    <option value="NEW_PAYEE">🆕 New Payee</option>
-                    <option value="DAILY_LIMIT">📅 Daily Limit</option>
-                    <option value="TIME_OF_DAY">🕐 Time of Day</option>
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>✏️ Edit Rule</h3>
+        <input type="hidden" id="edit-id">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Rule Name *</label>
+                <input type="text" id="edit-ruleName" placeholder="Rule name">
+            </div>
+            <div class="form-group">
+                <label>Rule Type</label>
+                <input type="text" id="edit-ruleType-display" disabled>
+                <input type="hidden" id="edit-ruleType">
+            </div>
+            <div class="form-group">
+                <label>Severity *</label>
+                <select id="edit-severity">
+                    <option value="LOW">🔵 LOW</option>
+                    <option value="MEDIUM">🟡 MEDIUM</option>
+                    <option value="HIGH">🔴 HIGH</option>
                 </select>
-                <div class="cond-params" id="cond-params-${idx}">
-                    <span>Select a type</span>
+            </div>
+            <div class="dynamic-params" id="edit-dynamic-params"></div>
+            <div class="form-group full">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit-isActive">
+                    <label for="edit-isActive">Rule is Active</label>
                 </div>
-                <button type="button" class="btn-rm-cond" onclick="this.parentElement.remove()" title="Remove">✕</button>`;
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+        </div>
+    </div>
+</div>
 
-            document.getElementById(`${prefix}-conditions-list`).appendChild(row);
+<!-- Confirm Delete Dialog -->
+<div class="confirm-dialog" id="confirmDialog">
+    <div class="confirm-box">
+        <div class="icon">⚠️</div>
+        <h4>Delete Rule?</h4>
+        <p id="confirm-msg">This action cannot be undone.</p>
+        <div class="actions">
+            <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
+            <button class="btn btn-danger" onclick="confirmDeleteAction()">🗑️ Delete</button>
+        </div>
+    </div>
+</div>
 
-            if (existing) {
-                row.querySelector('.condition-type-sel').value = existing.conditionType;
-                updateConditionParams(row.querySelector('.condition-type-sel'), idx, existing);
-            }
+<div id="toast" class="toast"></div>
+
+<script>
+    const API = 'http://localhost:8080';
+    let deleteTargetId = null;
+    let conditionCounter = 0;
+
+    // ─── Navigation ─────────────────────────────────────────────────────────
+    function showPage(name, el, title) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('page-' + name).classList.add('active');
+        if (el) el.classList.add('active');
+        document.getElementById('pageTitle').textContent = title;
+        if (name === 'rules-list') loadRules();
+    }
+
+    // ─── Dynamic Parameters ──────────────────────────────────────────────────
+    function updateDynamicParams(prefix) {
+        const type = document.getElementById(prefix + '-ruleType').value;
+        const container = document.getElementById(prefix + '-dynamic-params');
+
+        if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+            const label = type === 'AMOUNT_THRESHOLD' ? 'Amount Threshold ($) *' : 'Daily Limit ($) *';
+            const hint = type === 'AMOUNT_THRESHOLD'
+                ? '💡 Alert triggers when a single transaction exceeds this amount.'
+                : '💡 Alert triggers when the account\'s daily total exceeds this amount.';
+            container.innerHTML = `
+                <div class="param-hint">${hint}</div>
+                <div class="form-group full">
+                    <label>${label}</label>
+                    <input type="number" id="${prefix}-thresholdValue" placeholder="e.g. 10000" step="0.01" min="0.01">
+                </div>`;
+        } else if (type === 'VELOCITY') {
+            container.innerHTML = `
+                <div class="param-hint">💡 Alert triggers when the same account makes more than <b>Max Count</b> transactions within the <b>Time Window</b>.</div>
+                <div class="form-group">
+                    <label>Time Window (minutes) *</label>
+                    <input type="number" id="${prefix}-timeWindowMinutes" placeholder="e.g. 10" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Transactions Allowed *</label>
+                    <input type="number" id="${prefix}-maxCount" placeholder="e.g. 5" min="1">
+                </div>`;
+        } else if (type === 'NEW_PAYEE') {
+            container.innerHTML = `
+                <div class="param-hint full">💡 Alert triggers on the first transaction from an account to a payee that has never been seen before. No extra parameters needed.</div>`;
+        } else if (type === 'COMPLEX') {
+            container.innerHTML = buildComplexBuilder(prefix);
+        } else {
+            container.innerHTML = '';
         }
+    }
 
-        function updateConditionParams(sel, idx, prefill) {
-            const type = sel.value;
-            const container = document.getElementById(`cond-params-${idx}`);
-            const v = (key) => prefill ? (prefill[key] != null ? prefill[key] : '') : '';
+    // ─── Complex Rule Builder ────────────────────────────────────────────────
+    function buildComplexBuilder(prefix) {
+        return `<div class="complex-builder">
+            <div class="param-hint" style="margin-bottom:12px;">
+                🔗 Combine multiple conditions with AND/OR logic.
+                <b>AND</b>: all conditions must match. <b>OR</b>: any condition triggers the alert.
+            </div>
+            <div class="logic-op-row">
+                <label>Logic Operator:</label>
+                <select class="logic-op-select" id="${prefix}-logicOperator">
+                    <option value="AND">AND — all must match</option>
+                    <option value="OR">OR — any one matches</option>
+                </select>
+            </div>
+            <div class="conditions-list" id="${prefix}-conditions-list"></div>
+            <button type="button" class="btn-add-cond" onclick="addConditionRow('${prefix}')">+ Add Condition</button>
+        </div>`;
+    }
 
+    function addConditionRow(prefix, existing) {
+        const idx = conditionCounter++;
+        const row = document.createElement('div');
+        row.className = 'condition-row';
+        row.dataset.conditionId = existing ? (existing.id || '') : '';
+        row.dataset.idx = idx;
+
+        row.innerHTML = `
+            <select class="condition-type-sel" onchange="updateConditionParams(this, ${idx})">
+                <option value="">-- Type --</option>
+                <option value="AMOUNT_THRESHOLD">💰 Amount Threshold</option>
+                <option value="VELOCITY">⚡ Velocity</option>
+                <option value="NEW_PAYEE">🆕 New Payee</option>
+                <option value="DAILY_LIMIT">📅 Daily Limit</option>
+                <option value="TIME_OF_DAY">🕐 Time of Day</option>
+            </select>
+            <div class="cond-params" id="cond-params-${idx}">
+                <span>Select a type</span>
+            </div>
+            <button type="button" class="btn-rm-cond" onclick="this.parentElement.remove()" title="Remove">✕</button>`;
+
+        document.getElementById(`${prefix}-conditions-list`).appendChild(row);
+
+        if (existing) {
+            row.querySelector('.condition-type-sel').value = existing.conditionType;
+            updateConditionParams(row.querySelector('.condition-type-sel'), idx, existing);
+        }
+    }
+
+    function updateConditionParams(sel, idx, prefill) {
+        const type = sel.value;
+        const container = document.getElementById(`cond-params-${idx}`);
+        const v = (key) => prefill ? (prefill[key] != null ? prefill[key] : '') : '';
+
+        if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+            const lbl = type === 'AMOUNT_THRESHOLD' ? 'Threshold ($)' : 'Daily Limit ($)';
+            container.innerHTML = `<span>${lbl}</span>
+                <input type="number" id="cond-threshold-${idx}" placeholder="e.g. 10000" step="0.01" min="0.01" value="${v('thresholdValue')}">`;
+        } else if (type === 'VELOCITY') {
+            container.innerHTML = `<span>Window (min)</span>
+                <input type="number" id="cond-tw-${idx}" placeholder="10" min="1" value="${v('timeWindowMinutes')}">
+                <span>Max txns</span>
+                <input type="number" id="cond-mc-${idx}" placeholder="5" min="1" value="${v('maxCount')}">`;
+        } else if (type === 'NEW_PAYEE') {
+            container.innerHTML = `<span>First-time payee — no params needed</span>`;
+        } else if (type === 'TIME_OF_DAY') {
+            container.innerHTML = `<span>Business hours</span>
+                <input type="number" id="cond-start-${idx}" placeholder="9" min="0" max="23" value="${prefill && prefill.startHour != null ? prefill.startHour : 9}" style="max-width:70px;">
+                <span>to</span>
+                <input type="number" id="cond-end-${idx}" placeholder="17" min="0" max="23" value="${prefill && prefill.endHour != null ? prefill.endHour : 17}" style="max-width:70px;">
+                <span style="color:#e94560;">Alert outside these hours</span>`;
+        } else {
+            container.innerHTML = `<span>Select a type</span>`;
+        }
+    }
+
+    function collectConditions(prefix) {
+        const rows = document.querySelectorAll(`#${prefix}-conditions-list .condition-row`);
+        if (rows.length === 0) { showToast('Please add at least one condition', 'error'); return null; }
+        const conditions = [];
+        for (const row of rows) {
+            const idx = row.dataset.idx;
+            const type = row.querySelector('.condition-type-sel').value;
+            if (!type) { showToast('Please select a type for all conditions', 'error'); return null; }
+            const cond = { conditionType: type };
             if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
-                const lbl = type === 'AMOUNT_THRESHOLD' ? 'Threshold ($)' : 'Daily Limit ($)';
-                container.innerHTML = `<span>${lbl}</span>
-                    <input type="number" id="cond-threshold-${idx}" placeholder="e.g. 10000" step="0.01" min="0.01" value="${v('thresholdValue')}">`;
+                const val = document.getElementById(`cond-threshold-${idx}`)?.value;
+                if (!val || parseFloat(val) <= 0) { showToast('Enter a valid threshold for all conditions', 'error'); return null; }
+                cond.thresholdValue = parseFloat(val);
             } else if (type === 'VELOCITY') {
-                container.innerHTML = `<span>Window (min)</span>
-                    <input type="number" id="cond-tw-${idx}" placeholder="10" min="1" value="${v('timeWindowMinutes')}">
-                    <span>Max txns</span>
-                    <input type="number" id="cond-mc-${idx}" placeholder="5" min="1" value="${v('maxCount')}">`;
-            } else if (type === 'NEW_PAYEE') {
-                container.innerHTML = `<span>First-time payee — no params needed</span>`;
+                const tw = document.getElementById(`cond-tw-${idx}`)?.value;
+                const mc = document.getElementById(`cond-mc-${idx}`)?.value;
+                if (!tw || !mc) { showToast('Fill in velocity params for all conditions', 'error'); return null; }
+                cond.timeWindowMinutes = parseInt(tw);
+                cond.maxCount = parseInt(mc);
             } else if (type === 'TIME_OF_DAY') {
-                container.innerHTML = `<span>Business hours</span>
-                    <input type="number" id="cond-start-${idx}" placeholder="9" min="0" max="23" value="${prefill && prefill.startHour != null ? prefill.startHour : 9}" style="max-width:70px;">
-                    <span>to</span>
-                    <input type="number" id="cond-end-${idx}" placeholder="17" min="0" max="23" value="${prefill && prefill.endHour != null ? prefill.endHour : 17}" style="max-width:70px;">
-                    <span style="color:#e94560;">Alert outside these hours</span>`;
-            } else {
-                container.innerHTML = `<span>Select a type</span>`;
+                const sh = document.getElementById(`cond-start-${idx}`)?.value;
+                const eh = document.getElementById(`cond-end-${idx}`)?.value;
+                if (sh === '' || eh === '') { showToast('Enter start/end hours for time-of-day condition', 'error'); return null; }
+                cond.startHour = parseInt(sh);
+                cond.endHour = parseInt(eh);
             }
+            conditions.push(cond);
         }
+        return conditions;
+    }
 
-        function collectConditions(prefix) {
-            const rows = document.querySelectorAll(`#${prefix}-conditions-list .condition-row`);
-            if (rows.length === 0) { showToast('Please add at least one condition', 'error'); return null; }
-            const conditions = [];
-            for (const row of rows) {
-                const idx = row.dataset.idx;
-                const type = row.querySelector('.condition-type-sel').value;
-                if (!type) { showToast('Please select a type for all conditions', 'error'); return null; }
-                const cond = { conditionType: type };
-                if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
-                    const val = document.getElementById(`cond-threshold-${idx}`)?.value;
-                    if (!val || parseFloat(val) <= 0) { showToast('Enter a valid threshold for all conditions', 'error'); return null; }
-                    cond.thresholdValue = parseFloat(val);
-                } else if (type === 'VELOCITY') {
-                    const tw = document.getElementById(`cond-tw-${idx}`)?.value;
-                    const mc = document.getElementById(`cond-mc-${idx}`)?.value;
-                    if (!tw || !mc) { showToast('Fill in velocity params for all conditions', 'error'); return null; }
-                    cond.timeWindowMinutes = parseInt(tw);
-                    cond.maxCount = parseInt(mc);
-                } else if (type === 'TIME_OF_DAY') {
-                    const sh = document.getElementById(`cond-start-${idx}`)?.value;
-                    const eh = document.getElementById(`cond-end-${idx}`)?.value;
-                    if (sh === '' || eh === '') { showToast('Enter start/end hours for time-of-day condition', 'error'); return null; }
-                    cond.startHour = parseInt(sh);
-                    cond.endHour = parseInt(eh);
-                }
-                conditions.push(cond);
-            }
-            return conditions;
+    function getParamsFromForm(prefix) {
+        const type = document.getElementById(prefix === 'edit' ? 'edit-ruleType' : 'add-ruleType').value;
+        const params = {};
+        if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+            const v = document.getElementById(prefix + '-thresholdValue')?.value;
+            if (!v || parseFloat(v) <= 0) { showToast('Please enter a valid threshold value', 'error'); return null; }
+            params.thresholdValue = parseFloat(v);
+        } else if (type === 'VELOCITY') {
+            const tw = document.getElementById(prefix + '-timeWindowMinutes')?.value;
+            const mc = document.getElementById(prefix + '-maxCount')?.value;
+            if (!tw || parseInt(tw) < 1) { showToast('Please enter a valid time window', 'error'); return null; }
+            if (!mc || parseInt(mc) < 1) { showToast('Please enter a valid max count', 'error'); return null; }
+            params.timeWindowMinutes = parseInt(tw);
+            params.maxCount = parseInt(mc);
         }
+        return params;
+    }
 
-        function getParamsFromForm(prefix) {
-            const type = document.getElementById(prefix === 'edit' ? 'edit-ruleType' : 'add-ruleType').value;
-            const params = {};
-            if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
-                const v = document.getElementById(prefix + '-thresholdValue')?.value;
-                if (!v || parseFloat(v) <= 0) { showToast('Please enter a valid threshold value', 'error'); return null; }
-                params.thresholdValue = parseFloat(v);
-            } else if (type === 'VELOCITY') {
-                const tw = document.getElementById(prefix + '-timeWindowMinutes')?.value;
-                const mc = document.getElementById(prefix + '-maxCount')?.value;
-                if (!tw || parseInt(tw) < 1) { showToast('Please enter a valid time window', 'error'); return null; }
-                if (!mc || parseInt(mc) < 1) { showToast('Please enter a valid max count', 'error'); return null; }
-                params.timeWindowMinutes = parseInt(tw);
-                params.maxCount = parseInt(mc);
-            }
-            return params;
-        }
+    // ─── Load Rules ──────────────────────────────────────────────────────────
+    async function loadRules() {
+        document.getElementById('rules-loading').style.display = 'block';
+        document.getElementById('rules-table').style.display = 'none';
+        document.getElementById('rules-empty').style.display = 'none';
 
-        // ─── Load Rules ──────────────────────────────────────────────────────────
-        async function loadRules() {
-            document.getElementById('rules-loading').style.display = 'block';
-            document.getElementById('rules-table').style.display = 'none';
-            document.getElementById('rules-empty').style.display = 'none';
+        try {
+            const res = await fetch(`${API}/rules`);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const rules = await res.json();
 
-            try {
-                const res = await fetch(`${API}/rules`);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const rules = await res.json();
+            // Jackson 对 boolean isActive 字段序列化为 "active"（去掉 is 前缀）
+            const total = rules.length;
+            const active = rules.filter(r => r.active === true || r.isActive === true).length;
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-active').textContent = active;
+            document.getElementById('stat-inactive').textContent = total - active;
+            document.getElementById('stat-high').textContent = rules.filter(r => r.severity === 'HIGH').length;
 
-                // Jackson 对 boolean isActive 字段序列化为 "active"（去掉 is 前缀）
-                const total = rules.length;
-                const active = rules.filter(r => r.active === true || r.isActive === true).length;
-                document.getElementById('stat-total').textContent = total;
-                document.getElementById('stat-active').textContent = active;
-                document.getElementById('stat-inactive').textContent = total - active;
-                document.getElementById('stat-high').textContent = rules.filter(r => r.severity === 'HIGH').length;
-
-                if (total === 0) {
-                    document.getElementById('rules-empty').innerHTML =
-                        '<div class="empty-icon">📭</div><p>No rules found. <a href="#" onclick="showPage(\'add-rule\', document.querySelectorAll(\'.nav-item\')[1], \'➕ Add New Rule\')">Add one now</a></p>';
-                    document.getElementById('rules-empty').style.display = 'block';
-                } else {
-                    document.getElementById('rules-tbody').innerHTML = rules.map(renderRuleRow).join('');
-                    document.getElementById('rules-table').style.display = 'table';
-                }
-            } catch (e) {
-                const isNetworkError = e.message === 'Failed to fetch' || e.message.includes('NetworkError');
-                const msg = isNetworkError
-                    ? '⚠️ Cannot connect to backend. Please make sure the Spring Boot application is running on port 8080.'
-                    : 'Failed to load rules: ' + e.message;
+            if (total === 0) {
                 document.getElementById('rules-empty').innerHTML =
-                    `<div class="empty-icon">🔌</div>
-                     <p style="color:#e94560;font-weight:700;margin-bottom:12px;">${isNetworkError ? 'Backend Not Running' : 'Load Failed'}</p>
-                     <p style="font-size:13px;color:#888;max-width:400px;margin:0 auto 16px;">${msg}</p>
-                     ${isNetworkError ? '<p style="font-size:12px;color:#aaa;">Run: <code style="background:#f0f0f0;padding:2px 8px;border-radius:4px;">mvn spring-boot:run</code></p>' : ''}
-                     <button class="btn btn-outline" style="margin-top:16px;" onclick="loadRules()">🔄 Retry</button>`;
+                    '<div class="empty-icon">📭</div><p>No rules found. <a href="#" onclick="showPage(\'add-rule\', document.querySelectorAll(\'.nav-item\')[1], \'➕ Add New Rule\')">Add one now</a></p>';
                 document.getElementById('rules-empty').style.display = 'block';
-            } finally {
-                document.getElementById('rules-loading').style.display = 'none';
-            }
-        }
-
-        function renderRuleRow(r) {
-            // Jackson 将 boolean isActive 字段序列化为 "active"（去掉 is 前缀）
-            const isActive = r.active !== undefined ? r.active : (r.isActive !== undefined ? r.isActive : false);
-            const typeLabel = { AMOUNT_THRESHOLD: '💰 Amount', VELOCITY: '⚡ Velocity', NEW_PAYEE: '🆕 New Payee', DAILY_LIMIT: '📅 Daily Limit', COMPLEX: '🔗 Complex' };
-            const typeBadge = { AMOUNT_THRESHOLD: 'badge-amount', VELOCITY: 'badge-velocity', NEW_PAYEE: 'badge-payee', DAILY_LIMIT: 'badge-daily', COMPLEX: 'badge-complex' };
-            const sevBadge = { HIGH: 'badge-high', MEDIUM: 'badge-medium', LOW: 'badge-low' };
-
-            let params = '-';
-            if (r.ruleType === 'AMOUNT_THRESHOLD') params = `Threshold: $${r.thresholdValue || '-'}`;
-            else if (r.ruleType === 'DAILY_LIMIT') params = `Daily Limit: $${r.thresholdValue || '-'}`;
-            else if (r.ruleType === 'VELOCITY') params = `${r.timeWindowMinutes}min / max ${r.maxCount} txn`;
-            else if (r.ruleType === 'NEW_PAYEE') params = 'First-time payee';
-            else if (r.ruleType === 'COMPLEX') params = `${r.logicOperator || 'AND'} logic`;
-
-            return `<tr>
-                <td style="color:#aaa;font-size:13px;">#${r.id}</td>
-                <td class="rule-name">${esc(r.ruleName)}</td>
-                <td><span class="badge ${typeBadge[r.ruleType] || ''}">${typeLabel[r.ruleType] || r.ruleType}</span></td>
-                <td><span class="badge ${sevBadge[r.severity] || ''}">${r.severity}</span></td>
-                <td style="font-size:13px;color:#666;">${params}</td>
-                <td>
-                    <label class="toggle-switch" title="${isActive ? 'Click to disable' : 'Click to enable'}">
-                        <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleRule(${r.id}, this.checked)">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </td>
-                <td>
-                    <div class="btn-group">
-                        <button class="btn btn-outline btn-sm" onclick="openEdit(${r.id})">✏️ Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="openConfirmDelete(${r.id}, '${esc(r.ruleName)}')">🗑️ Delete</button>
-                    </div>
-                </td>
-            </tr>`;
-        }
-
-        // ─── Toggle Active ────────────────────────────────────────────────────────
-        async function toggleRule(id, isActive) {
-            try {
-                const res = await fetch(`${API}/rules/${id}`, { method: 'GET' });
-                const rule = await res.json();
-                // 统一用 "active" 字段名（Jackson 对 boolean isActive 序列化为 "active"）
-                const payload = { ...rule, active: isActive };
-                delete payload.isActive; // 清除可能存在的 isActive key
-
-                const putRes = await fetch(`${API}/rules/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
-                showToast(`Rule ${isActive ? 'enabled ✅' : 'disabled ⏸️'}`, 'success');
-                setTimeout(loadRules, 600);
-            } catch (e) {
-                showToast('Toggle failed: ' + e.message, 'error');
-                loadRules();
-            }
-        }
-
-        // ─── Add Rule ─────────────────────────────────────────────────────────────
-        async function submitRule() {
-            const ruleName = document.getElementById('add-ruleName').value.trim();
-            const ruleType = document.getElementById('add-ruleType').value;
-            const severity = document.getElementById('add-severity').value;
-            const isActive = document.getElementById('add-isActive').checked;
-
-            if (!ruleName) { showToast('Please enter a rule name', 'error'); return; }
-            if (!ruleType) { showToast('Please select a rule type', 'error'); return; }
-
-            let payload, conditions = [];
-            if (ruleType === 'COMPLEX') {
-                const logicOperator = document.getElementById('add-logicOperator').value;
-                conditions = collectConditions('add');
-                if (!conditions) return;
-                payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
             } else {
-                const extraParams = getParamsFromForm('add');
-                if (extraParams === null) return;
-                payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+                document.getElementById('rules-tbody').innerHTML = rules.map(renderRuleRow).join('');
+                document.getElementById('rules-table').style.display = 'table';
+            }
+        } catch (e) {
+            const isNetworkError = e.message === 'Failed to fetch' || e.message.includes('NetworkError');
+            const msg = isNetworkError
+                ? '⚠️ Cannot connect to backend. Please make sure the Spring Boot application is running on port 8080.'
+                : 'Failed to load rules: ' + e.message;
+            document.getElementById('rules-empty').innerHTML =
+                `<div class="empty-icon">🔌</div>
+                 <p style="color:#e94560;font-weight:700;margin-bottom:12px;">${isNetworkError ? 'Backend Not Running' : 'Load Failed'}</p>
+                 <p style="font-size:13px;color:#888;max-width:400px;margin:0 auto 16px;">${msg}</p>
+                 ${isNetworkError ? '<p style="font-size:12px;color:#aaa;">Run: <code style="background:#f0f0f0;padding:2px 8px;border-radius:4px;">mvn spring-boot:run</code></p>' : ''}
+                 <button class="btn btn-outline" style="margin-top:16px;" onclick="loadRules()">🔄 Retry</button>`;
+            document.getElementById('rules-empty').style.display = 'block';
+        } finally {
+            document.getElementById('rules-loading').style.display = 'none';
+        }
+    }
+
+    function renderRuleRow(r) {
+        // Jackson 将 boolean isActive 字段序列化为 "active"（去掉 is 前缀）
+        const isActive = r.active !== undefined ? r.active : (r.isActive !== undefined ? r.isActive : false);
+        const typeLabel = { AMOUNT_THRESHOLD: '💰 Amount', VELOCITY: '⚡ Velocity', NEW_PAYEE: '🆕 New Payee', DAILY_LIMIT: '📅 Daily Limit', COMPLEX: '🔗 Complex' };
+        const typeBadge = { AMOUNT_THRESHOLD: 'badge-amount', VELOCITY: 'badge-velocity', NEW_PAYEE: 'badge-payee', DAILY_LIMIT: 'badge-daily', COMPLEX: 'badge-complex' };
+        const sevBadge = { HIGH: 'badge-high', MEDIUM: 'badge-medium', LOW: 'badge-low' };
+
+        let params = '-';
+        if (r.ruleType === 'AMOUNT_THRESHOLD') params = `Threshold: $${r.thresholdValue || '-'}`;
+        else if (r.ruleType === 'DAILY_LIMIT') params = `Daily Limit: $${r.thresholdValue || '-'}`;
+        else if (r.ruleType === 'VELOCITY') params = `${r.timeWindowMinutes}min / max ${r.maxCount} txn`;
+        else if (r.ruleType === 'NEW_PAYEE') params = 'First-time payee';
+        else if (r.ruleType === 'COMPLEX') params = `${r.logicOperator || 'AND'} logic`;
+
+        return `<tr>
+            <td style="color:#aaa;font-size:13px;">#${r.id}</td>
+            <td class="rule-name">${esc(r.ruleName)}</td>
+            <td><span class="badge ${typeBadge[r.ruleType] || ''}">${typeLabel[r.ruleType] || r.ruleType}</span></td>
+            <td><span class="badge ${sevBadge[r.severity] || ''}">${r.severity}</span></td>
+            <td style="font-size:13px;color:#666;">${params}</td>
+            <td>
+                <label class="toggle-switch" title="${isActive ? 'Click to disable' : 'Click to enable'}">
+                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleRule(${r.id}, this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-outline btn-sm" onclick="openEdit(${r.id})">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="openConfirmDelete(${r.id}, '${esc(r.ruleName)}')">🗑️ Delete</button>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    // ─── Toggle Active ────────────────────────────────────────────────────────
+    async function toggleRule(id, isActive) {
+        try {
+            const res = await fetch(`${API}/rules/${id}`, { method: 'GET' });
+            const rule = await res.json();
+            // 统一用 "active" 字段名（Jackson 对 boolean isActive 序列化为 "active"）
+            const payload = { ...rule, active: isActive };
+            delete payload.isActive; // 清除可能存在的 isActive key
+
+            const putRes = await fetch(`${API}/rules/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+            showToast(`Rule ${isActive ? 'enabled ✅' : 'disabled ⏸️'}`, 'success');
+            setTimeout(loadRules, 600);
+        } catch (e) {
+            showToast('Toggle failed: ' + e.message, 'error');
+            loadRules();
+        }
+    }
+
+    // ─── Add Rule ─────────────────────────────────────────────────────────────
+    async function submitRule() {
+        const ruleName = document.getElementById('add-ruleName').value.trim();
+        const ruleType = document.getElementById('add-ruleType').value;
+        const severity = document.getElementById('add-severity').value;
+        const isActive = document.getElementById('add-isActive').checked;
+
+        if (!ruleName) { showToast('Please enter a rule name', 'error'); return; }
+        if (!ruleType) { showToast('Please select a rule type', 'error'); return; }
+
+        let payload, conditions = [];
+        if (ruleType === 'COMPLEX') {
+            const logicOperator = document.getElementById('add-logicOperator').value;
+            conditions = collectConditions('add');
+            if (!conditions) return;
+            payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
+        } else {
+            const extraParams = getParamsFromForm('add');
+            if (extraParams === null) return;
+            payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+        }
+
+        try {
+            const res = await fetch(`${API}/rules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
+            const newRule = await res.json();
+            for (const cond of conditions) {
+                await fetch(`${API}/rules/${newRule.id}/conditions`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cond)
+                });
+            }
+            showToast('✅ Rule created successfully!', 'success');
+            clearAddForm();
+            setTimeout(() => showPage('rules-list', document.querySelectorAll('.nav-item')[0], '📋 All Rules'), 800);
+        } catch (e) {
+            showToast('Failed to create rule: ' + e.message, 'error');
+        }
+    }
+
+    function clearAddForm() {
+        document.getElementById('add-ruleName').value = '';
+        document.getElementById('add-ruleType').value = '';
+        document.getElementById('add-severity').value = 'LOW';
+        document.getElementById('add-isActive').checked = true;
+        document.getElementById('add-dynamic-params').innerHTML = '';
+        conditionCounter = 0;
+    }
+
+    // ─── Edit Rule ────────────────────────────────────────────────────────────
+    async function openEdit(id) {
+        try {
+            const res = await fetch(`${API}/rules/${id}`);
+            const r = await res.json();
+
+            document.getElementById('edit-id').value = r.id;
+            document.getElementById('edit-ruleName').value = r.ruleName;
+            document.getElementById('edit-ruleType').value = r.ruleType;
+            document.getElementById('edit-ruleType-display').value =
+                { AMOUNT_THRESHOLD: 'Amount Threshold', VELOCITY: 'Velocity', NEW_PAYEE: 'New Payee', DAILY_LIMIT: 'Daily Limit', COMPLEX: 'Complex Rule' }[r.ruleType] || r.ruleType;
+            document.getElementById('edit-severity').value = r.severity;
+            const isActive = r.active !== undefined ? r.active : r.isActive;
+            document.getElementById('edit-isActive').checked = isActive;
+
+            updateDynamicParamsEdit(r.ruleType);
+
+            if (r.ruleType === 'AMOUNT_THRESHOLD' || r.ruleType === 'DAILY_LIMIT') {
+                const el = document.getElementById('edit-thresholdValue');
+                if (el) el.value = r.thresholdValue || '';
+            } else if (r.ruleType === 'VELOCITY') {
+                const tw = document.getElementById('edit-timeWindowMinutes');
+                const mc = document.getElementById('edit-maxCount');
+                if (tw) tw.value = r.timeWindowMinutes || '';
+                if (mc) mc.value = r.maxCount || '';
+            } else if (r.ruleType === 'COMPLEX') {
+                const logicSel = document.getElementById('edit-logicOperator');
+                if (logicSel) logicSel.value = r.logicOperator || 'AND';
+                const condRes = await fetch(`${API}/rules/${id}/conditions`);
+                const conditions = await condRes.json();
+                for (const cond of conditions) addConditionRow('edit', cond);
             }
 
-            try {
-                const res = await fetch(`${API}/rules`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
-                const newRule = await res.json();
+            document.getElementById('editModal').classList.add('open');
+        } catch (e) {
+            showToast('Failed to load rule: ' + e.message, 'error');
+        }
+    }
+
+    function updateDynamicParamsEdit(type) {
+        const container = document.getElementById('edit-dynamic-params');
+        if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
+            const label = type === 'AMOUNT_THRESHOLD' ? 'Amount Threshold ($) *' : 'Daily Limit ($) *';
+            container.innerHTML = `
+                <div class="form-group full">
+                    <label>${label}</label>
+                    <input type="number" id="edit-thresholdValue" step="0.01" min="0.01">
+                </div>`;
+        } else if (type === 'VELOCITY') {
+            container.innerHTML = `
+                <div class="form-group">
+                    <label>Time Window (minutes) *</label>
+                    <input type="number" id="edit-timeWindowMinutes" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Transactions Allowed *</label>
+                    <input type="number" id="edit-maxCount" min="1">
+                </div>`;
+        } else if (type === 'COMPLEX') {
+            container.innerHTML = buildComplexBuilder('edit');
+        } else {
+            container.innerHTML = `<div class="param-hint full">No extra parameters for NEW_PAYEE rule.</div>`;
+        }
+    }
+
+    async function saveEdit() {
+        const id = document.getElementById('edit-id').value;
+        const ruleName = document.getElementById('edit-ruleName').value.trim();
+        const ruleType = document.getElementById('edit-ruleType').value;
+        const severity = document.getElementById('edit-severity').value;
+        const isActive = document.getElementById('edit-isActive').checked;
+
+        if (!ruleName) { showToast('Rule name is required', 'error'); return; }
+
+        let payload, conditions = null;
+        if (ruleType === 'COMPLEX') {
+            const logicOperator = document.getElementById('edit-logicOperator').value;
+            conditions = collectConditions('edit');
+            if (!conditions) return;
+            payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
+        } else {
+            const extraParams = getParamsFromForm('edit');
+            if (extraParams === null) return;
+            payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
+        }
+
+        try {
+            const res = await fetch(`${API}/rules/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
+            if (ruleType === 'COMPLEX' && conditions !== null) {
+                await fetch(`${API}/rules/${id}/conditions`, { method: 'DELETE' });
                 for (const cond of conditions) {
-                    await fetch(`${API}/rules/${newRule.id}/conditions`, {
+                    await fetch(`${API}/rules/${id}/conditions`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(cond)
                     });
                 }
-                showToast('✅ Rule created successfully!', 'success');
-                clearAddForm();
-                setTimeout(() => showPage('rules-list', document.querySelectorAll('.nav-item')[0], '📋 All Rules'), 800);
-            } catch (e) {
-                showToast('Failed to create rule: ' + e.message, 'error');
             }
+            showToast('✅ Rule updated!', 'success');
+            closeModal();
+            loadRules();
+        } catch (e) {
+            showToast('Failed to update: ' + e.message, 'error');
         }
+    }
 
-        function clearAddForm() {
-            document.getElementById('add-ruleName').value = '';
-            document.getElementById('add-ruleType').value = '';
-            document.getElementById('add-severity').value = 'LOW';
-            document.getElementById('add-isActive').checked = true;
-            document.getElementById('add-dynamic-params').innerHTML = '';
-            conditionCounter = 0;
+    function closeModal() {
+        document.getElementById('editModal').classList.remove('open');
+        conditionCounter = 0;
+    }
+
+    // ─── Delete Rule ──────────────────────────────────────────────────────────
+    function openConfirmDelete(id, name) {
+        deleteTargetId = id;
+        document.getElementById('confirm-msg').textContent = `Delete rule "${name}"? This cannot be undone.`;
+        document.getElementById('confirmDialog').classList.add('open');
+    }
+
+    function closeConfirm() {
+        deleteTargetId = null;
+        document.getElementById('confirmDialog').classList.remove('open');
+    }
+
+    async function confirmDeleteAction() {
+        if (!deleteTargetId) return;
+        try {
+            const res = await fetch(`${API}/rules/${deleteTargetId}`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 204) throw new Error('HTTP ' + res.status);
+            showToast('🗑️ Rule deleted', 'success');
+            closeConfirm();
+            loadRules();
+        } catch (e) {
+            showToast('Delete failed: ' + e.message, 'error');
+            closeConfirm();
         }
+    }
 
-        // ─── Edit Rule ────────────────────────────────────────────────────────────
-        async function openEdit(id) {
-            try {
-                const res = await fetch(`${API}/rules/${id}`);
-                const r = await res.json();
+    // ─── Utilities ────────────────────────────────────────────────────────────
+    function esc(t) {
+        if (!t) return '';
+        const d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
 
-                document.getElementById('edit-id').value = r.id;
-                document.getElementById('edit-ruleName').value = r.ruleName;
-                document.getElementById('edit-ruleType').value = r.ruleType;
-                document.getElementById('edit-ruleType-display').value =
-                    { AMOUNT_THRESHOLD: 'Amount Threshold', VELOCITY: 'Velocity', NEW_PAYEE: 'New Payee', DAILY_LIMIT: 'Daily Limit', COMPLEX: 'Complex Rule' }[r.ruleType] || r.ruleType;
-                document.getElementById('edit-severity').value = r.severity;
-                const isActive = r.active !== undefined ? r.active : r.isActive;
-                document.getElementById('edit-isActive').checked = isActive;
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast ${type} show`;
+        setTimeout(() => t.className = 'toast', 3500);
+    }
 
-                updateDynamicParamsEdit(r.ruleType);
+    // Close modal when clicking overlay
+    document.getElementById('editModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
 
-                if (r.ruleType === 'AMOUNT_THRESHOLD' || r.ruleType === 'DAILY_LIMIT') {
-                    const el = document.getElementById('edit-thresholdValue');
-                    if (el) el.value = r.thresholdValue || '';
-                } else if (r.ruleType === 'VELOCITY') {
-                    const tw = document.getElementById('edit-timeWindowMinutes');
-                    const mc = document.getElementById('edit-maxCount');
-                    if (tw) tw.value = r.timeWindowMinutes || '';
-                    if (mc) mc.value = r.maxCount || '';
-                } else if (r.ruleType === 'COMPLEX') {
-                    const logicSel = document.getElementById('edit-logicOperator');
-                    if (logicSel) logicSel.value = r.logicOperator || 'AND';
-                    const condRes = await fetch(`${API}/rules/${id}/conditions`);
-                    const conditions = await condRes.json();
-                    for (const cond of conditions) addConditionRow('edit', cond);
-                }
-
-                document.getElementById('editModal').classList.add('open');
-            } catch (e) {
-                showToast('Failed to load rule: ' + e.message, 'error');
-            }
-        }
-
-        function updateDynamicParamsEdit(type) {
-            const container = document.getElementById('edit-dynamic-params');
-            if (type === 'AMOUNT_THRESHOLD' || type === 'DAILY_LIMIT') {
-                const label = type === 'AMOUNT_THRESHOLD' ? 'Amount Threshold ($) *' : 'Daily Limit ($) *';
-                container.innerHTML = `
-                    <div class="form-group full">
-                        <label>${label}</label>
-                        <input type="number" id="edit-thresholdValue" step="0.01" min="0.01">
-                    </div>`;
-            } else if (type === 'VELOCITY') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label>Time Window (minutes) *</label>
-                        <input type="number" id="edit-timeWindowMinutes" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Max Transactions Allowed *</label>
-                        <input type="number" id="edit-maxCount" min="1">
-                    </div>`;
-            } else if (type === 'COMPLEX') {
-                container.innerHTML = buildComplexBuilder('edit');
-            } else {
-                container.innerHTML = `<div class="param-hint full">No extra parameters for NEW_PAYEE rule.</div>`;
-            }
-        }
-
-        async function saveEdit() {
-            const id = document.getElementById('edit-id').value;
-            const ruleName = document.getElementById('edit-ruleName').value.trim();
-            const ruleType = document.getElementById('edit-ruleType').value;
-            const severity = document.getElementById('edit-severity').value;
-            const isActive = document.getElementById('edit-isActive').checked;
-
-            if (!ruleName) { showToast('Rule name is required', 'error'); return; }
-
-            let payload, conditions = null;
-            if (ruleType === 'COMPLEX') {
-                const logicOperator = document.getElementById('edit-logicOperator').value;
-                conditions = collectConditions('edit');
-                if (!conditions) return;
-                payload = { ruleName, ruleType: 'COMPLEX', severity, active: isActive, logicOperator };
-            } else {
-                const extraParams = getParamsFromForm('edit');
-                if (extraParams === null) return;
-                payload = { ruleName, ruleType, severity, active: isActive, ...extraParams };
-            }
-
-            try {
-                const res = await fetch(`${API}/rules/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) { const e = await res.json(); throw new Error(e.message || JSON.stringify(e)); }
-                if (ruleType === 'COMPLEX' && conditions !== null) {
-                    await fetch(`${API}/rules/${id}/conditions`, { method: 'DELETE' });
-                    for (const cond of conditions) {
-                        await fetch(`${API}/rules/${id}/conditions`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(cond)
-                        });
-                    }
-                }
-                showToast('✅ Rule updated!', 'success');
-                closeModal();
-                loadRules();
-            } catch (e) {
-                showToast('Failed to update: ' + e.message, 'error');
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('editModal').classList.remove('open');
-            conditionCounter = 0;
-        }
-
-        // ─── Delete Rule ──────────────────────────────────────────────────────────
-        function openConfirmDelete(id, name) {
-            deleteTargetId = id;
-            document.getElementById('confirm-msg').textContent = `Delete rule "${name}"? This cannot be undone.`;
-            document.getElementById('confirmDialog').classList.add('open');
-        }
-
-        function closeConfirm() {
-            deleteTargetId = null;
-            document.getElementById('confirmDialog').classList.remove('open');
-        }
-
-        async function confirmDeleteAction() {
-            if (!deleteTargetId) return;
-            try {
-                const res = await fetch(`${API}/rules/${deleteTargetId}`, { method: 'DELETE' });
-                if (!res.ok && res.status !== 204) throw new Error('HTTP ' + res.status);
-                showToast('🗑️ Rule deleted', 'success');
-                closeConfirm();
-                loadRules();
-            } catch (e) {
-                showToast('Delete failed: ' + e.message, 'error');
-                closeConfirm();
-            }
-        }
-
-        // ─── Utilities ────────────────────────────────────────────────────────────
-        function esc(t) {
-            if (!t) return '';
-            const d = document.createElement('div');
-            d.textContent = t;
-            return d.innerHTML;
-        }
-
-        function showToast(msg, type) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = `toast ${type} show`;
-            setTimeout(() => t.className = 'toast', 3500);
-        }
-
-        // Close modal when clicking overlay
-        document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target === this) closeModal();
-        });
-
-        // ─── Init ─────────────────────────────────────────────────────────────────
-        loadRules();
-    </script>
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    loadRules();
+</script>
 </body>
 </html>
-

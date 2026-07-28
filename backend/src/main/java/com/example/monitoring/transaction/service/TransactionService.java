@@ -174,12 +174,12 @@ public class TransactionService {
             String url = FX_API_URL + "?app_id=" + fxApiId;
             String response = restTemplate.getForObject(url, String.class);
             JsonNode jsonNode = objectMapper.readTree(response);
-            
+
             if (jsonNode.has("rates")) {
                 JsonNode ratesNode = jsonNode.get("rates");
                 Map<String, BigDecimal> rates = new HashMap<>();
                 ratesNode.fieldNames().forEachRemaining(currency ->
-                    rates.put(currency, new BigDecimal(ratesNode.get(currency).asText()))
+                        rates.put(currency, new BigDecimal(ratesNode.get(currency).asText()))
                 );
 
                 fxCache = new HashMap<>();
@@ -217,7 +217,7 @@ public class TransactionService {
     private static final String[] CURRENCIES = {"USD", "EUR", "GBP", "CNY", "JPY", "AUD", "CAD", "HKD", "SGD", "CHF"};
     // 只生成需要触发规则的类型（不含 SALARY/REFUND 豁免类型）
     private static final TransactionType[] GEN_TYPES = {
-        TransactionType.TRANSFER_OUT, TransactionType.DEPOSIT, TransactionType.WITHDRAWAL
+            TransactionType.TRANSFER_OUT, TransactionType.DEPOSIT, TransactionType.WITHDRAWAL
     };
 
     /**
