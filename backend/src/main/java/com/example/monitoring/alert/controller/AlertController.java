@@ -61,7 +61,7 @@ public class AlertController {
         return ResponseEntity.ok(alertService.startInvestigating(id, notes));
     }
 
-    // PATCH /alerts/{id}/close — 关闭告警 (ACKNOWLEDGED/INVESTIGATING → CLOSED)
+    // PATCH /alerts/{id}/close — 关闭告警 (INVESTIGATING → CLOSED)
     @PatchMapping("/{id}/close")
     public ResponseEntity<Alert> close(@PathVariable Long id,
                                        @RequestBody(required = false) UpdateAlertStatusRequest request) {
