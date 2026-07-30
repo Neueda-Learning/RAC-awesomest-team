@@ -134,8 +134,11 @@ public class TransactionService {
      */
     public List<Transaction> generateMockTransactions(GenerateTransactionsRequest request) {
         int count = request.getCount() != null ? request.getCount() : 100;
-        if (count <= 0 || count > 10000) {
-            throw new IllegalArgumentException("count must be between 1 and 10000");
+        if (count <= 0) {
+            throw new IllegalArgumentException("count must be greater than 0");
+        }
+        if (count > 10000) {
+            throw new IllegalArgumentException("count must not exceed 10000");
         }
 
         BigDecimal minAmount = request.getMinAmount() != null
@@ -154,11 +157,23 @@ public class TransactionService {
             throw new IllegalArgumentException("startAt must not be after endAt");
         }
 
-        // 时间步长（秒），默认平均分布在时间区间内
+        // 指定 stepSeconds 时要保证区间可容纳 count 个点；未指定时按首尾对齐均匀分布。
         long totalSeconds = java.time.Duration.between(startAt, endAt).getSeconds();
-        long stepSeconds = request.getStepSeconds() != null
-                ? request.getStepSeconds()
-                : Math.max(1, totalSeconds / count);
+        Integer requestedStepSeconds = request.getStepSeconds();
+        Long fixedStepSeconds = null;
+
+        if (requestedStepSeconds != null) {
+            if (requestedStepSeconds <= 0) {
+                throw new IllegalArgumentException("stepSeconds must be greater than 0");
+            }
+            fixedStepSeconds = requestedStepSeconds.longValue();
+            if (count > 1) {
+                long requiredSeconds = Math.multiplyExact((long) (count - 1), fixedStepSeconds);
+                if (requiredSeconds > totalSeconds) {
+                    throw new IllegalArgumentException("time range must be large enough for count and stepSeconds");
+                }
+            }
+        }
 
         Random random = new Random();
         List<Transaction> result = new ArrayList<>();
@@ -180,10 +195,14 @@ public class TransactionService {
 
             String currency = CURRENCIES[random.nextInt(CURRENCIES.length)];
 
-            // 在时间区间内按步长递增
-            LocalDateTime createdAt = startAt.plusSeconds((long) i * stepSeconds);
-            if (createdAt.isAfter(endAt)) {
-                createdAt = endAt;
+            LocalDateTime createdAt;
+            if (count == 1) {
+                createdAt = startAt;
+            } else if (fixedStepSeconds != null) {
+                createdAt = startAt.plusSeconds((long) i * fixedStepSeconds);
+            } else {
+                long offsetSeconds = Math.round((double) i * totalSeconds / (count - 1));
+                createdAt = startAt.plusSeconds(offsetSeconds);
             }
 
             Transaction tx = new Transaction(
