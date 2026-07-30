@@ -129,11 +129,19 @@ The schema includes idempotent indexes for the dashboard reporting paths:
 
 ## 9. Next Dashboard Plan
 
+### Completed After Initial Dashboard Delivery
+
+- Added an inclusive custom UTC date range to the consolidated dashboard API
+  and the existing `alerts.html` filter panel.
+- Kept the 7-day and 30-day shortcuts for routine operations.
+- Applied the selected range consistently to every KPI and chart.
+- Added a 366-day maximum, rejected future end dates, and displayed the exact
+  effective UTC range returned by the backend.
+
 ### P1
 
 - Add scheduled SLA-state evaluation so active overdue alerts immediately affect
   SLA metrics.
-- Add custom UTC date ranges in addition to the 7/30-day presets.
 - Add previous-period comparison indicators to KPI cards.
 
 ### P2
@@ -150,8 +158,9 @@ The schema includes idempotent indexes for the dashboard reporting paths:
 
 ## 10. Validation
 
-- Focused dashboard metric/frontend tests passed (`12/12`).
-- Full Maven test suite passed (`37/37`).
+- Focused dashboard metric/frontend tests cover preset and custom UTC ranges.
+- Full Maven test suite passed (`47/47`); inline JavaScript syntax validation
+  passed.
 - Inline JavaScript syntax validation passed.
 - Dashboard resource tests verify that the five removed lifecycle KPI card IDs
   are absent and all new chart canvases are present.

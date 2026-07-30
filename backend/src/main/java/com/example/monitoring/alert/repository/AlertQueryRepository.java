@@ -50,6 +50,22 @@ public class AlertQueryRepository {
         return new AlertQueryResult(content, total == null ? 0L : total);
     }
 
+    /**
+     * Returns filtered alerts for export using the same WHERE and ORDER BY
+     * contract as the paginated query.
+     */
+    public List<Alert> findForExport(AlertQueryRequest request, int limit) {
+        QueryParts queryParts = buildWhereClause(request);
+        String selectSql = "SELECT id, rule_id, transaction_id, account_id, severity, status, "
+                + "dedup_count, last_triggered_at, sla_breached, ack_at, resolved_at, ack_due_at, resolve_due_at, "
+                + "created_at, updated_at "
+                + "FROM alert " + queryParts.whereSql + " " + buildOrderBy(request) + " LIMIT :limit";
+
+        MapSqlParameterSource params = new MapSqlParameterSource(queryParts.params.getValues());
+        params.addValue("limit", limit);
+        return jdbcTemplate.query(selectSql, params, (rs, rowNum) -> mapAlert(rs));
+    }
+
     private QueryParts buildWhereClause(AlertQueryRequest request) {
         StringBuilder where = new StringBuilder("WHERE 1=1");
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -57,6 +73,10 @@ public class AlertQueryRepository {
         if (request.getStatus() != null) {
             where.append(" AND status = :status");
             params.addValue("status", request.getStatus().name());
+        } else if ("ACTIVE".equals(request.getStatusGroup())) {
+            where.append(" AND status IN ('OPEN','ACKNOWLEDGED','INVESTIGATING')");
+        } else if ("RESOLVED".equals(request.getStatusGroup())) {
+            where.append(" AND status IN ('CLOSED','DISMISSED')");
         }
         if (request.getSeverity() != null) {
             where.append(" AND severity = :severity");
@@ -95,8 +115,11 @@ public class AlertQueryRepository {
         );
 
         String column = sortColumns.getOrDefault(request.getSortBy(), "created_at");
+        if ("severity".equals(request.getSortBy())) {
+            column = "CASE severity WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 1 ELSE 0 END";
+        }
         String direction = "asc".equalsIgnoreCase(request.getSortDir()) ? "ASC" : "DESC";
-        return "ORDER BY " + column + " " + direction;
+        return "ORDER BY " + column + " " + direction + ", id " + direction;
     }
 
     private Alert mapAlert(ResultSet rs) throws SQLException {

@@ -1,8 +1,11 @@
 package com.example.monitoring.alert.service;
 
+import com.example.monitoring.alert.dto.AlertBulkAction;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.AlertListItem;
+import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
+import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
@@ -11,15 +14,21 @@ import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertStatusHistoryRepository;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class AlertService {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_BULK_ALERTS = 100;
+    private static final int MAX_EXPORT_ROWS = 5_000;
 
     private final AlertRepository alertRepository;
     private final AlertStatusHistoryRepository historyRepository;
@@ -64,6 +73,72 @@ public class AlertService {
         AlertQueryRequest normalized = request == null ? new AlertQueryRequest() : request;
         normalized.setSlaBreached(true);
         return queryAlerts(normalized);
+    }
+
+    /**
+     * Applies one lifecycle action to multiple alerts. An invalid transition for
+     * one alert does not prevent the remaining alerts from being processed.
+     */
+    public BulkAlertStatusResponse bulkChangeStatus(BulkAlertStatusRequest request) {
+        validateBulkRequest(request);
+
+        String notes = normalizeNotes(request.getNotes());
+        List<BulkAlertStatusResponse.ItemResult> results = new ArrayList<>();
+        int successCount = 0;
+
+        for (Long id : request.getIds()) {
+            try {
+                Alert updated = applyBulkAction(id, request.getAction(), notes);
+                results.add(new BulkAlertStatusResponse.ItemResult(
+                        id, true, updated.getStatus(), null));
+                successCount++;
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                results.add(new BulkAlertStatusResponse.ItemResult(
+                        id, false, null, exception.getMessage()));
+            }
+        }
+
+        return new BulkAlertStatusResponse(
+                request.getIds().size(),
+                successCount,
+                request.getIds().size() - successCount,
+                results
+        );
+    }
+
+    /**
+     * Exports alerts using the same filters and ordering as the query endpoint.
+     */
+    public byte[] exportAlertsCsv(AlertQueryRequest request) {
+        AlertQueryRequest normalized = validateAndNormalizeQueryRequest(request);
+        List<Alert> alerts = alertQueryRepository.findForExport(normalized, MAX_EXPORT_ROWS + 1);
+        if (alerts.size() > MAX_EXPORT_ROWS) {
+            throw new IllegalArgumentException(
+                    "Export exceeds the maximum of " + MAX_EXPORT_ROWS + " alerts; refine the filters");
+        }
+
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("id,ruleId,transactionId,accountId,severity,status,dedupCount,lastTriggeredAt,")
+                .append("slaBreached,ackAt,resolvedAt,ackDueAt,resolveDueAt,createdAt,updatedAt\r\n");
+        for (Alert alert : alerts) {
+            appendCsvRow(csv,
+                    alert.getId(),
+                    alert.getRuleId(),
+                    alert.getTransactionId(),
+                    alert.getAccountId(),
+                    alert.getSeverity(),
+                    alert.getStatus(),
+                    alert.getDedupCount(),
+                    alert.getLastTriggeredAt(),
+                    alert.getSlaBreached(),
+                    alert.getAckAt(),
+                    alert.getResolvedAt(),
+                    alert.getAckDueAt(),
+                    alert.getResolveDueAt(),
+                    alert.getCreatedAt(),
+                    alert.getUpdatedAt());
+        }
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     public List<Alert> getAllAlerts() {
@@ -133,6 +208,17 @@ public class AlertService {
             normalized.setSeverity(severity);
         }
 
+        if (normalized.getStatusGroup() != null) {
+            String statusGroup = normalized.getStatusGroup().trim().toUpperCase();
+            if (statusGroup.isEmpty()) {
+                normalized.setStatusGroup(null);
+            } else if (!"ACTIVE".equals(statusGroup) && !"RESOLVED".equals(statusGroup)) {
+                throw new IllegalArgumentException("statusGroup must be one of ACTIVE, RESOLVED");
+            } else {
+                normalized.setStatusGroup(statusGroup);
+            }
+        }
+
         if (normalized.getAccountId() != null) {
             String accountId = normalized.getAccountId().trim();
             normalized.setAccountId(accountId.isEmpty() ? null : accountId);
@@ -146,6 +232,73 @@ public class AlertService {
         }
 
         return normalized;
+    }
+
+    private void validateBulkRequest(BulkAlertStatusRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        if (request.getIds() == null || request.getIds().isEmpty()) {
+            throw new IllegalArgumentException("ids must not be empty");
+        }
+        if (request.getIds().size() > MAX_BULK_ALERTS) {
+            throw new IllegalArgumentException("ids must contain at most " + MAX_BULK_ALERTS + " alerts");
+        }
+        if (request.getAction() == null) {
+            throw new IllegalArgumentException("action is required");
+        }
+
+        Set<Long> uniqueIds = new HashSet<>();
+        for (Long id : request.getIds()) {
+            if (id == null || id <= 0) {
+                throw new IllegalArgumentException("ids must contain only positive values");
+            }
+            if (!uniqueIds.add(id)) {
+                throw new IllegalArgumentException("ids must not contain duplicates");
+            }
+        }
+        if (request.getNotes() != null && request.getNotes().length() > 1000) {
+            throw new IllegalArgumentException("notes must not exceed 1000 characters");
+        }
+    }
+
+    private Alert applyBulkAction(Long id, AlertBulkAction action, String notes) {
+        return switch (action) {
+            case ACKNOWLEDGE -> acknowledge(id, notes);
+            case INVESTIGATE -> startInvestigating(id, notes);
+            case CLOSE -> close(id, notes);
+            case DISMISS -> dismiss(id, notes);
+        };
+    }
+
+    private String normalizeNotes(String notes) {
+        if (notes == null) {
+            return null;
+        }
+        String normalized = notes.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void appendCsvRow(StringBuilder csv, Object... values) {
+        for (int index = 0; index < values.length; index++) {
+            if (index > 0) {
+                csv.append(',');
+            }
+            csv.append(escapeCsv(values[index]));
+        }
+        csv.append("\r\n");
+    }
+
+    private String escapeCsv(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String text = value.toString();
+        if (text.indexOf(',') >= 0 || text.indexOf('"') >= 0
+                || text.indexOf('\r') >= 0 || text.indexOf('\n') >= 0) {
+            return '"' + text.replace("\"", "\"\"") + '"';
+        }
+        return text;
     }
 
     private AlertListItem toListItem(Alert alert) {

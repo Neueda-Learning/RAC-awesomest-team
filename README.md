@@ -122,16 +122,19 @@ After backend startup, you can open:
 - `GET /alerts`
 - `GET /alerts?status=OPEN`
 - `GET /alerts/query` - server-side filtering, sorting, and pagination
+- `GET /alerts/export?statusGroup=ACTIVE&format=csv` - filtered CSV export (max 5,000 rows)
 - `GET /alerts/{id}`
 - `GET /alerts/{id}/history`
 - `GET /alerts/metrics/average-resolution?from=...&to=...&severity=HIGH`
 - `GET /alerts/metrics/trend?days=7&severity=HIGH`
 - `GET /alerts/metrics/summary?from=...&to=...&severity=HIGH`
 - `GET /alerts/metrics/dashboard?days=30&severity=HIGH`
+- `GET /alerts/metrics/dashboard?from=2026-06-15&to=2026-07-30&severity=HIGH` - inclusive custom UTC date range (max 366 days)
 - `PATCH /alerts/{id}/acknowledge`
 - `PATCH /alerts/{id}/investigate`
 - `PATCH /alerts/{id}/close`
 - `PATCH /alerts/{id}/dismiss`
+- `POST /alerts/bulk/status` - up to 100 IDs with per-alert success/failure results
 
 ## Mock Data Generation
 

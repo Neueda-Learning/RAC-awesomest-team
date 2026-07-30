@@ -23,6 +23,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -198,5 +199,70 @@ class AlertMetricsServiceTest {
         assertEquals(900.0, response.getResponseTimeTrend().get(3).averageResolutionSeconds());
         assertEquals(50.0, response.getSlaTrend().get(4).breachRatePercent());
         assertEquals("Rapid Transfers", response.getAlertsByRule().get(0).ruleName());
+    }
+
+    @Test
+    void dashboardMetrics_shouldUseInclusiveCustomUtcDateRange() {
+        LocalDate fromDate = LocalDate.of(2026, 6, 15);
+        LocalDate toDate = LocalDate.of(2026, 7, 30);
+        LocalDateTime from = fromDate.atStartOfDay();
+        LocalDateTime to = LocalDate.of(2026, 7, 31).atStartOfDay();
+        stubEmptyDashboardMetrics(from, to, "HIGH");
+
+        AlertDashboardMetricsResponse response =
+                metricsService.getDashboardMetrics(fromDate, toDate, " high ");
+
+        assertEquals(46, response.getDays());
+        assertEquals(46, response.getAlertTrend().size());
+        assertEquals(fromDate, response.getAlertTrend().get(0).getDate());
+        assertEquals(toDate, response.getAlertTrend().get(45).getDate());
+        assertEquals(Instant.parse("2026-06-15T00:00:00Z"), response.getFrom());
+        assertEquals(Instant.parse("2026-07-31T00:00:00Z"), response.getTo());
+        assertEquals("HIGH", response.getSeverity());
+        verify(metricsRepository).countTransactions(from, to);
+    }
+
+    @Test
+    void dashboardMetrics_shouldValidateCustomDateRange() {
+        IllegalArgumentException missing = assertThrows(IllegalArgumentException.class,
+                () -> metricsService.getDashboardMetrics(LocalDate.of(2026, 7, 1), null, null));
+        assertEquals("from and to are both required for a custom range", missing.getMessage());
+
+        IllegalArgumentException reversed = assertThrows(IllegalArgumentException.class,
+                () -> metricsService.getDashboardMetrics(
+                        LocalDate.of(2026, 7, 2), LocalDate.of(2026, 7, 1), null));
+        assertEquals("from must not be after to", reversed.getMessage());
+
+        IllegalArgumentException future = assertThrows(IllegalArgumentException.class,
+                () -> metricsService.getDashboardMetrics(
+                        LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), null));
+        assertEquals("to must not be after the current UTC date", future.getMessage());
+
+        IllegalArgumentException tooLong = assertThrows(IllegalArgumentException.class,
+                () -> metricsService.getDashboardMetrics(
+                        LocalDate.of(2025, 7, 29), LocalDate.of(2026, 7, 30), null));
+        assertEquals("custom dashboard range must not exceed 366 days", tooLong.getMessage());
+    }
+
+    private void stubEmptyDashboardMetrics(LocalDateTime from,
+                                           LocalDateTime to,
+                                           String severity) {
+        when(metricsRepository.countByStatus(from, to, severity)).thenReturn(Map.of());
+        when(metricsRepository.countBySeverity(from, to, severity)).thenReturn(Map.of());
+        when(metricsRepository.countTransactions(from, to)).thenReturn(0L);
+        when(metricsRepository.averageAcknowledge(from, to, severity))
+                .thenReturn(new AlertMetricsRepository.DurationAggregate(0L, null));
+        when(metricsRepository.averageResolution(from, to, severity))
+                .thenReturn(new AlertMetricsRepository.AverageResolutionAggregate(0L, null));
+        when(metricsRepository.getSlaAggregate(from, to, severity))
+                .thenReturn(new AlertMetricsRepository.SlaAggregate(0L, 0L));
+        when(metricsRepository.getResolutionOutcomes(from, to, severity))
+                .thenReturn(new AlertMetricsRepository.ResolutionOutcomeAggregate(0L, 0L));
+        when(metricsRepository.countCreatedAlertsByDay(from, to, severity)).thenReturn(List.of());
+        when(metricsRepository.countTransactionsByDay(from, to)).thenReturn(List.of());
+        when(metricsRepository.averageAcknowledgeByDay(from, to, severity)).thenReturn(List.of());
+        when(metricsRepository.averageResolutionByDay(from, to, severity)).thenReturn(List.of());
+        when(metricsRepository.getDailySlaCounts(from, to, severity)).thenReturn(List.of());
+        when(metricsRepository.countAlertsByRule(from, to, severity)).thenReturn(List.of());
     }
 }

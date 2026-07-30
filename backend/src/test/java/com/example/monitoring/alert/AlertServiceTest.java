@@ -1,7 +1,10 @@
 package com.example.monitoring.alert;
 
+import com.example.monitoring.alert.dto.AlertBulkAction;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
+import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
+import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
@@ -16,15 +19,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -204,5 +210,88 @@ public class AlertServiceTest {
 		ArgumentCaptor<AlertQueryRequest> requestCaptor = ArgumentCaptor.forClass(AlertQueryRequest.class);
 		verify(alertQueryRepository).query(requestCaptor.capture());
 		assertTrue(Boolean.TRUE.equals(requestCaptor.getValue().getSlaBreached()));
+	}
+
+	@Test
+	void bulkChangeStatus_shouldContinueAfterInvalidTransition() {
+		Alert open = new Alert(1L, 11L, "ACC-001", "HIGH");
+		open.setId(201L);
+		open.setStatus(AlertStatus.OPEN);
+		Alert closed = new Alert(1L, 12L, "ACC-002", "LOW");
+		closed.setId(202L);
+		closed.setStatus(AlertStatus.CLOSED);
+
+		when(alertRepository.findById(201L)).thenReturn(Optional.of(open));
+		when(alertRepository.findById(202L)).thenReturn(Optional.of(closed));
+		when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		BulkAlertStatusRequest request = new BulkAlertStatusRequest();
+		request.setIds(List.of(201L, 202L));
+		request.setAction(AlertBulkAction.ACKNOWLEDGE);
+		request.setNotes("  reviewed together  ");
+
+		BulkAlertStatusResponse response = alertService.bulkChangeStatus(request);
+
+		assertEquals(2, response.getRequestedCount());
+		assertEquals(1, response.getSuccessCount());
+		assertEquals(1, response.getFailureCount());
+		assertTrue(response.getResults().get(0).success());
+		assertEquals(AlertStatus.ACKNOWLEDGED, response.getResults().get(0).status());
+		assertTrue(!response.getResults().get(1).success());
+		assertTrue(response.getResults().get(1).error().contains("Current status: CLOSED"));
+
+		ArgumentCaptor<AlertStatusHistory> historyCaptor = ArgumentCaptor.forClass(AlertStatusHistory.class);
+		verify(historyRepository).save(historyCaptor.capture());
+		assertEquals("reviewed together", historyCaptor.getValue().getNotes());
+	}
+
+	@Test
+	void bulkChangeStatus_shouldRejectDuplicateIdsBeforeWriting() {
+		BulkAlertStatusRequest request = new BulkAlertStatusRequest();
+		request.setIds(List.of(201L, 201L));
+		request.setAction(AlertBulkAction.ACKNOWLEDGE);
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> alertService.bulkChangeStatus(request));
+
+		assertEquals("ids must not contain duplicates", exception.getMessage());
+		verify(alertRepository, never()).findById(any(Long.class));
+	}
+
+	@Test
+	void exportAlertsCsv_shouldReuseFiltersAndEscapeCsvValues() {
+		Alert alert = new Alert(7L, 88L, "ACC,\"VIP\"", "HIGH");
+		alert.setId(301L);
+		alert.setStatus(AlertStatus.INVESTIGATING);
+		alert.setDedupCount(2);
+		alert.setSlaBreached(true);
+		alert.setCreatedAt(LocalDateTime.of(2026, 7, 30, 12, 30));
+		when(alertQueryRepository.findForExport(any(AlertQueryRequest.class), eq(5001)))
+				.thenReturn(List.of(alert));
+
+		AlertQueryRequest request = new AlertQueryRequest();
+		request.setStatusGroup(" active ");
+		byte[] bytes = alertService.exportAlertsCsv(request);
+		String csv = new String(bytes, StandardCharsets.UTF_8);
+
+		assertTrue(csv.startsWith("\uFEFFid,ruleId,transactionId"));
+		assertTrue(csv.contains("\"ACC,\"\"VIP\"\"\""));
+		assertTrue(csv.contains("301,7,88"));
+
+		ArgumentCaptor<AlertQueryRequest> requestCaptor = ArgumentCaptor.forClass(AlertQueryRequest.class);
+		verify(alertQueryRepository).findForExport(requestCaptor.capture(), eq(5001));
+		assertEquals("ACTIVE", requestCaptor.getValue().getStatusGroup());
+	}
+
+	@Test
+	void exportAlertsCsv_shouldRejectMoreThanMaximumRows() {
+		Alert alert = new Alert(1L, 2L, "ACC-001", "LOW");
+		when(alertQueryRepository.findForExport(any(AlertQueryRequest.class), eq(5001)))
+				.thenReturn(Collections.nCopies(5001, alert));
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> alertService.exportAlertsCsv(new AlertQueryRequest()));
+
+		assertTrue(exception.getMessage().contains("maximum of 5000"));
 	}
 }

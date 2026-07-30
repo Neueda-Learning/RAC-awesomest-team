@@ -23,11 +23,22 @@ class AlertDashboardFrontendTest {
             assertTrue(html.contains("id=\"responseTimeTrendChart\""));
             assertTrue(html.contains("id=\"slaTrendChart\""));
             assertTrue(html.contains("id=\"ruleAlertsChart\""));
+            assertTrue(html.contains("value=\"custom\">Custom date range"));
+            assertTrue(html.contains("id=\"dashboard-from\""));
+            assertTrue(html.contains("id=\"dashboard-to\""));
+            assertTrue(html.contains("function toggleDashboardDateInputs("));
+            assertTrue(html.contains("params.set('from', from)"));
+            assertTrue(html.contains("params.set('to', to)"));
             assertFalse(html.contains("id=\"stat-open\""));
             assertFalse(html.contains("id=\"stat-ack\""));
             assertFalse(html.contains("id=\"stat-inv\""));
             assertFalse(html.contains("id=\"stat-closed\""));
             assertFalse(html.contains("id=\"stat-dismissed\""));
+            assertTrue(html.contains("id=\"pending-select-all\""));
+            assertTrue(html.contains("function bulkChangeStatus("));
+            assertTrue(html.contains("/alerts/bulk/status"));
+            assertTrue(html.contains("function exportAlerts("));
+            assertTrue(html.contains("/alerts/export?"));
 
             int renderStart = html.indexOf("function renderDashboard(");
             int nextFunction = html.indexOf("function renderPending(", renderStart);

@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -76,5 +77,19 @@ class AlertMetricsControllerTest {
         mockMvc.perform(get("/alerts/metrics/dashboard").param("days", "14"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("days must be one of 7, 30"));
+    }
+
+    @Test
+    void dashboard_shouldBindCustomUtcDates() throws Exception {
+        mockMvc.perform(get("/alerts/metrics/dashboard")
+                        .param("from", "2026-06-15")
+                        .param("to", "2026-07-30")
+                        .param("severity", "HIGH"))
+                .andExpect(status().isOk());
+
+        verify(metricsService).getDashboardMetrics(
+                LocalDate.of(2026, 6, 15),
+                LocalDate.of(2026, 7, 30),
+                "HIGH");
     }
 }
