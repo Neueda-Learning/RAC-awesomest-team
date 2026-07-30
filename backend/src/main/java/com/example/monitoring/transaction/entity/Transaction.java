@@ -1,6 +1,7 @@
 package com.example.monitoring.transaction.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
@@ -18,6 +19,9 @@ public class Transaction {
     private String transactionType;
     private String description;
     private LocalDateTime createdAt;
+
+    @Transient
+    private Boolean alertTriggered;
 
     public Transaction() {}
 
@@ -55,4 +59,7 @@ public class Transaction {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Boolean getAlertTriggered() { return alertTriggered; }
+    public void setAlertTriggered(Boolean alertTriggered) { this.alertTriggered = alertTriggered; }
 }
