@@ -2,6 +2,7 @@ package com.example.monitoring.alert;
 
 import com.example.monitoring.alert.controller.AlertController;
 import com.example.monitoring.alert.dto.AlertBulkAction;
+import com.example.monitoring.alert.dto.AlertTransactionItem;
 import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
 import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.entity.AlertStatus;
@@ -18,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -96,5 +99,23 @@ class AlertOperationsControllerTest {
                                 {"ids":[],"action":"ACKNOWLEDGE"}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void alertTransactions_shouldReturnEveryLinkedTransaction() throws Exception {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 7, 30, 10, 55);
+        LocalDateTime triggeredAt = LocalDateTime.of(2026, 7, 30, 11, 0);
+        when(alertService.getAlertTransactions(88L)).thenReturn(List.of(
+                new AlertTransactionItem(
+                        20L, "ACC-009", "PAY-001", new BigDecimal("20000.00"),
+                        "USD", "TRANSFER_OUT", "repeat trigger", createdAt, triggeredAt)
+        ));
+
+        mockMvc.perform(get("/alerts/88/transactions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].transactionId").value(20))
+                .andExpect(jsonPath("$[0].amount").value(20000.00))
+                .andExpect(jsonPath("$[0].transactionCreatedAt[3]").value(10))
+                .andExpect(jsonPath("$[0].alertTriggeredAt[3]").value(11));
     }
 }

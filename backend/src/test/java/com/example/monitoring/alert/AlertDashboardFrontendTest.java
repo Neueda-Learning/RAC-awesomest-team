@@ -39,6 +39,23 @@ class AlertDashboardFrontendTest {
             assertTrue(html.contains("/alerts/bulk/status"));
             assertTrue(html.contains("function exportAlerts("));
             assertTrue(html.contains("/alerts/export?"));
+            assertTrue(html.contains("<th>Occurrences</th>"));
+            assertTrue(html.contains("<th>Last Triggered</th>"));
+            assertTrue(html.contains("id=\"alert-transactions-modal\""));
+            assertTrue(html.contains("function openAlertTransactions("));
+            assertTrue(html.contains("/transactions`"));
+            assertFalse(html.contains("function toggleDetail("));
+            assertTrue(html.contains("id=\"page-email-settings\""));
+            assertTrue(html.contains("id=\"email-settings-form\""));
+            assertTrue(html.contains("/admin/email-settings"));
+            assertTrue(html.contains("/admin/email-settings/test"));
+            assertTrue(html.contains("function loadEmailSettings("));
+            assertTrue(html.contains("function saveEmailSettings("));
+            assertTrue(html.contains("function sendTestEmail("));
+            assertTrue(html.contains("SMTP_PASSWORD environment variable"));
+            assertTrue(html.contains(".env</code> file is not automatically loaded"));
+            assertFalse(html.contains("id=\"email-smtp-password\""));
+            assertFalse(html.contains("name=\"smtpPassword\""));
 
             int renderStart = html.indexOf("function renderDashboard(");
             int nextFunction = html.indexOf("function renderPending(", renderStart);

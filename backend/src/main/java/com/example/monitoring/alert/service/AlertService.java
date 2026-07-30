@@ -4,6 +4,7 @@ import com.example.monitoring.alert.dto.AlertBulkAction;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.AlertListItem;
+import com.example.monitoring.alert.dto.AlertTransactionItem;
 import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
 import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.entity.Alert;
@@ -12,6 +13,7 @@ import com.example.monitoring.alert.entity.AlertStatusHistory;
 import com.example.monitoring.alert.repository.AlertQueryRepository;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertStatusHistoryRepository;
+import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -33,13 +35,16 @@ public class AlertService {
     private final AlertRepository alertRepository;
     private final AlertStatusHistoryRepository historyRepository;
     private final AlertQueryRepository alertQueryRepository;
+    private final AlertTransactionLinkRepository alertTransactionLinkRepository;
 
     public AlertService(AlertRepository alertRepository,
                         AlertStatusHistoryRepository historyRepository,
-                        AlertQueryRepository alertQueryRepository) {
+                        AlertQueryRepository alertQueryRepository,
+                        AlertTransactionLinkRepository alertTransactionLinkRepository) {
         this.alertRepository = alertRepository;
         this.historyRepository = historyRepository;
         this.alertQueryRepository = alertQueryRepository;
+        this.alertTransactionLinkRepository = alertTransactionLinkRepository;
     }
 
     /**
@@ -165,6 +170,13 @@ public class AlertService {
 
     public List<AlertStatusHistory> getAlertHistory(Long alertId) {
         return historyRepository.findByAlertId(alertId);
+    }
+
+    public List<AlertTransactionItem> getAlertTransactions(Long alertId) {
+        if (!alertRepository.existsById(alertId)) {
+            throw new IllegalArgumentException("Alert not found: " + alertId);
+        }
+        return alertTransactionLinkRepository.findByAlertId(alertId);
     }
 
     /**

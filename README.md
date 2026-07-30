@@ -125,6 +125,7 @@ After backend startup, you can open:
 - `GET /alerts/export?statusGroup=ACTIVE&format=csv` - filtered CSV export (max 5,000 rows)
 - `GET /alerts/{id}`
 - `GET /alerts/{id}/history`
+- `GET /alerts/{id}/transactions` - all transactions represented by a deduplicated alert
 - `GET /alerts/metrics/average-resolution?from=...&to=...&severity=HIGH`
 - `GET /alerts/metrics/trend?days=7&severity=HIGH`
 - `GET /alerts/metrics/summary?from=...&to=...&severity=HIGH`
@@ -135,6 +136,32 @@ After backend startup, you can open:
 - `PATCH /alerts/{id}/close`
 - `PATCH /alerts/{id}/dismiss`
 - `POST /alerts/bulk/status` - up to 100 IDs with per-alert success/failure results
+
+### HIGH Alert Email
+
+Email delivery is disabled by default. Open **Alerts -> Email Settings** to
+configure the enable switch, sender, recipient, SMTP server, authentication,
+STARTTLS, and retry policy. These non-secret values are stored in the database
+and take effect immediately.
+
+Only the SMTP password stays in the backend environment:
+
+```powershell
+$env:SMTP_PASSWORD = "provider-app-password"
+
+Set-Location backend
+mvn spring-boot:run
+```
+
+Restart the backend after changing `SMTP_PASSWORD`. A plain `.env` file is
+gitignored but is not automatically loaded by this project; it must be loaded
+by Docker Compose or a startup script to become a process environment variable.
+
+New HIGH alerts send one email after the alert transaction commits.
+Deduplicated triggers do not send duplicate email. Failed deliveries are stored
+and retried up to three times by default. See
+`documents/high_severity_email_notification_2026-07-30.md` for provider-neutral
+configuration, testing, retry, and audit instructions.
 
 ## Mock Data Generation
 
@@ -240,6 +267,7 @@ Ensure Maven uses JDK 17 for this project.
 - `documents/7.27项目重构.md`
 - `documents/alert_metrics_2026-07-30.md`
 - `documents/dashboard_modification_and_plan_2026-07-30.md`
+- `documents/high_severity_email_notification_2026-07-30.md`
 
 ## Contribution Notes
 - Do not push directly to `main`
