@@ -14,7 +14,7 @@ public class Alert {
     private Long transactionId;
     private String accountId;
     private String severity;   // HIGH, MEDIUM, LOW
-    private String status;     // OPEN, ACKNOWLEDGED, INVESTIGATING, CLOSED, DISMISSED
+    private AlertStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -25,7 +25,7 @@ public class Alert {
         this.transactionId = transactionId;
         this.accountId = accountId;
         this.severity = severity;
-        this.status = "OPEN";
+        this.status = AlertStatus.OPEN;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -45,8 +45,8 @@ public class Alert {
     public String getSeverity() { return severity; }
     public void setSeverity(String severity) { this.severity = severity; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public AlertStatus getStatus() { return status; }
+    public void setStatus(AlertStatus status) { this.status = status; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

@@ -1,7 +1,11 @@
 package com.example.monitoring.alert;
 
+import com.example.monitoring.alert.dto.AlertQueryRequest;
+import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.entity.Alert;
+import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
+import com.example.monitoring.alert.repository.AlertQueryRepository;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertStatusHistoryRepository;
 import com.example.monitoring.alert.service.AlertService;
@@ -13,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +35,9 @@ public class AlertServiceTest {
 	@Mock
 	private AlertStatusHistoryRepository historyRepository;
 
+	@Mock
+	private AlertQueryRepository alertQueryRepository;
+
 	@InjectMocks
 	private AlertService alertService;
 
@@ -37,25 +45,25 @@ public class AlertServiceTest {
 	void acknowledge_shouldTransitionOpenToAcknowledgedAndWriteHistory() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(100L);
-		alert.setStatus("OPEN");
+		alert.setStatus(AlertStatus.OPEN);
 
 		when(alertRepository.findById(100L)).thenReturn(Optional.of(alert));
 		when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		Alert result = alertService.acknowledge(100L, "checked");
 
-		assertEquals("ACKNOWLEDGED", result.getStatus());
+		assertEquals(AlertStatus.ACKNOWLEDGED, result.getStatus());
 		ArgumentCaptor<AlertStatusHistory> captor = ArgumentCaptor.forClass(AlertStatusHistory.class);
 		verify(historyRepository).save(captor.capture());
-		assertEquals("OPEN", captor.getValue().getOldStatus());
-		assertEquals("ACKNOWLEDGED", captor.getValue().getNewStatus());
+		assertEquals(AlertStatus.OPEN, captor.getValue().getOldStatus());
+		assertEquals(AlertStatus.ACKNOWLEDGED, captor.getValue().getNewStatus());
 	}
 
 	@Test
 	void acknowledge_shouldThrowWhenStatusIsNotOpen() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(101L);
-		alert.setStatus("CLOSED");
+		alert.setStatus(AlertStatus.CLOSED);
 
 		when(alertRepository.findById(101L)).thenReturn(Optional.of(alert));
 
@@ -69,14 +77,14 @@ public class AlertServiceTest {
 	void close_shouldAllowInvestigatingToClosed() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(102L);
-		alert.setStatus("INVESTIGATING");
+		alert.setStatus(AlertStatus.INVESTIGATING);
 
 		when(alertRepository.findById(102L)).thenReturn(Optional.of(alert));
 		when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		Alert result = alertService.close(102L, "resolved");
 
-		assertEquals("CLOSED", result.getStatus());
+		assertEquals(AlertStatus.CLOSED, result.getStatus());
 		verify(historyRepository).save(any(AlertStatusHistory.class));
 	}
 
@@ -84,7 +92,7 @@ public class AlertServiceTest {
 	void close_shouldThrowWhenStatusIsAcknowledged() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(104L);
-		alert.setStatus("ACKNOWLEDGED");
+		alert.setStatus(AlertStatus.ACKNOWLEDGED);
 
 		when(alertRepository.findById(104L)).thenReturn(Optional.of(alert));
 
@@ -98,12 +106,53 @@ public class AlertServiceTest {
 	void startInvestigating_shouldThrowWhenStatusIsInvalid() {
 		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
 		alert.setId(103L);
-		alert.setStatus("OPEN");
+		alert.setStatus(AlertStatus.OPEN);
 
 		when(alertRepository.findById(103L)).thenReturn(Optional.of(alert));
 
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
 				() -> alertService.startInvestigating(103L, "begin"));
 		assertEquals("Can only investigate ACKNOWLEDGED alerts. Current status: OPEN", ex.getMessage());
+	}
+
+	@Test
+	void queryAlerts_shouldApplyDefaultsAndDelegateToRepository() {
+		AlertQueryRequest request = new AlertQueryRequest();
+		Alert sample = new Alert(1L, 2L, "ACC-001", "HIGH");
+		sample.setId(55L);
+		AlertQueryRepository.AlertQueryResult result = new AlertQueryRepository.AlertQueryResult(List.of(sample), 1L);
+
+		when(alertQueryRepository.query(any(AlertQueryRequest.class))).thenReturn(result);
+
+		AlertQueryResponse response = alertService.queryAlerts(request);
+
+		assertEquals(1L, response.getTotalElements());
+		assertEquals(1, response.getTotalPages());
+		assertEquals(0, response.getPage());
+		assertEquals(20, response.getSize());
+		assertEquals(55L, response.getContent().get(0).getId());
+		assertEquals("ACC-001", response.getContent().get(0).getAccountId());
+		verify(alertQueryRepository).query(any(AlertQueryRequest.class));
+	}
+
+	@Test
+	void queryAlerts_shouldThrowWhenPageIsNegative() {
+		AlertQueryRequest request = new AlertQueryRequest();
+		request.setPage(-1);
+
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> alertService.queryAlerts(request));
+		assertEquals("page must be greater than or equal to 0", ex.getMessage());
+	}
+
+	@Test
+	void queryAlerts_shouldThrowWhenDateRangeInvalid() {
+		AlertQueryRequest request = new AlertQueryRequest();
+		request.setFrom(java.time.LocalDateTime.of(2026, 7, 30, 12, 0));
+		request.setTo(java.time.LocalDateTime.of(2026, 7, 30, 10, 0));
+
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> alertService.queryAlerts(request));
+		assertEquals("from must not be after to", ex.getMessage());
 	}
 }

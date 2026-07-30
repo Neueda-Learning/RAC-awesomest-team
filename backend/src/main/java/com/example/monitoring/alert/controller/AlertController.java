@@ -1,7 +1,10 @@
 package com.example.monitoring.alert.controller;
 
+import com.example.monitoring.alert.dto.AlertQueryRequest;
+import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.UpdateAlertStatusRequest;
 import com.example.monitoring.alert.entity.Alert;
+import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
 import com.example.monitoring.alert.service.AlertService;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +28,15 @@ public class AlertController {
         return ResponseEntity.ok(alertService.getAllAlerts());
     }
 
+    // GET /alerts/query — 高级条件查询（后端分页/排序/过滤）
+    @GetMapping("/query")
+    public ResponseEntity<AlertQueryResponse> queryAlerts(@ModelAttribute AlertQueryRequest request) {
+        return ResponseEntity.ok(alertService.queryAlerts(request));
+    }
+
     // GET /alerts?status=OPEN — 按状态筛选告警
     @GetMapping(params = "status")
-    public ResponseEntity<List<Alert>> getAlertsByStatus(@RequestParam String status) {
+    public ResponseEntity<List<Alert>> getAlertsByStatus(@RequestParam AlertStatus status) {
         return ResponseEntity.ok(alertService.getAlertsByStatus(status));
     }
 
@@ -35,6 +44,14 @@ public class AlertController {
     @GetMapping("/{id}")
     public ResponseEntity<Alert> getAlertById(@PathVariable Long id) {
         return alertService.getAlertById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // GET /alerts/{id}/detail — 明确的详情接口（用于列表行展开）
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<Alert> getAlertDetailById(@PathVariable Long id) {
+        return alertService.getAlertDetailById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
