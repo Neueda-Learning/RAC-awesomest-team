@@ -203,7 +203,6 @@
             .form-group.full { grid-column: 1; }
         }
     </style>
-    <link rel="stylesheet" href="pro-ui.css">
 </head>
 <body>
 
@@ -414,8 +413,7 @@
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById('page-' + name).classList.add('active');
             el.classList.add('active');
-            const cleanTitle = String(title || '').replace(/^[^A-Za-z0-9]+\s*/, '');
-            document.getElementById('pageTitle').textContent = cleanTitle || title;
+            document.getElementById('pageTitle').textContent = title;
             if (name === 'dashboard') loadDashboard();
         }
 
