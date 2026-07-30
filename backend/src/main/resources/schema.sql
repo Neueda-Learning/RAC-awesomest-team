@@ -13,11 +13,19 @@ CREATE TABLE IF NOT EXISTS transaction (
     description     VARCHAR(255),
     created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_account_created (account_id, created_at),
+    INDEX idx_transaction_created_at (created_at),
     INDEX idx_payee (payee_id)
 );
 
 -- 兼容已存在的旧表结构：允许 payee_id 为空（用于存款/取款）
 ALTER TABLE transaction MODIFY COLUMN payee_id VARCHAR(50) NULL;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transaction' AND INDEX_NAME = 'idx_transaction_created_at');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_transaction_created_at ON transaction (created_at)', 'SELECT 1');
+PREPARE add_transaction_idx_stmt FROM @idx_sql;
+EXECUTE add_transaction_idx_stmt;
+DEALLOCATE PREPARE add_transaction_idx_stmt;
 
 -- 监控规则表
 CREATE TABLE IF NOT EXISTS monitoring_rule (
@@ -58,7 +66,10 @@ CREATE TABLE IF NOT EXISTS alert (
     INDEX idx_status_created (status, created_at),
     INDEX idx_severity_created (severity, created_at),
     INDEX idx_rule_created (rule_id, created_at),
-    INDEX idx_sla_breached (sla_breached, status)
+    INDEX idx_sla_breached (sla_breached, status),
+    INDEX idx_created_at (created_at),
+    INDEX idx_ack_at (ack_at),
+    INDEX idx_resolved_at (resolved_at)
 );
 
 -- 告警表兼容升级：补充去重与 SLA 字段（幂等）
@@ -141,6 +152,27 @@ DEALLOCATE PREPARE add_alert_idx_stmt;
 SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_sla_breached');
 SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_sla_breached ON alert (sla_breached, status)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_created_at');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_created_at ON alert (created_at)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_resolved_at');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_resolved_at ON alert (resolved_at)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_ack_at');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_ack_at ON alert (ack_at)', 'SELECT 1');
 PREPARE add_alert_idx_stmt FROM @idx_sql;
 EXECUTE add_alert_idx_stmt;
 DEALLOCATE PREPARE add_alert_idx_stmt;
