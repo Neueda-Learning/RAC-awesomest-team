@@ -41,14 +41,109 @@ CREATE TABLE IF NOT EXISTS alert (
     account_id      VARCHAR(50)   NOT NULL,
     severity        VARCHAR(20)   NOT NULL,  -- HIGH, MEDIUM, LOW
     status          VARCHAR(50)   NOT NULL,  -- OPEN, ACKNOWLEDGED, INVESTIGATING, CLOSED, DISMISSED
+    dedup_count     INT           NOT NULL DEFAULT 1,
+    last_triggered_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ack_at          TIMESTAMP     NULL,
+    resolved_at     TIMESTAMP     NULL,
+    ack_due_at      TIMESTAMP     NULL,
+    resolve_due_at  TIMESTAMP     NULL,
+    sla_breached    BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_alert_rule FOREIGN KEY (rule_id) REFERENCES monitoring_rule (id),
     CONSTRAINT fk_alert_transaction FOREIGN KEY (transaction_id) REFERENCES transaction (id),
     INDEX idx_status (status),
     INDEX idx_account_created (account_id, created_at),
-    INDEX idx_severity (severity)
+    INDEX idx_severity (severity),
+    INDEX idx_status_created (status, created_at),
+    INDEX idx_severity_created (severity, created_at),
+    INDEX idx_rule_created (rule_id, created_at),
+    INDEX idx_sla_breached (sla_breached, status)
 );
+
+-- 告警表兼容升级：补充去重与 SLA 字段（幂等）
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'dedup_count');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN dedup_count INT NOT NULL DEFAULT 1', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'last_triggered_at');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN last_triggered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'ack_at');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN ack_at TIMESTAMP NULL', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'resolved_at');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN resolved_at TIMESTAMP NULL', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'ack_due_at');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN ack_due_at TIMESTAMP NULL', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'resolve_due_at');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN resolve_due_at TIMESTAMP NULL', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND COLUMN_NAME = 'sla_breached');
+SET @alter_sql = IF(@col_exists = 0, 'ALTER TABLE alert ADD COLUMN sla_breached BOOLEAN NOT NULL DEFAULT FALSE', 'SELECT 1');
+PREPARE add_alert_col_stmt FROM @alter_sql;
+EXECUTE add_alert_col_stmt;
+DEALLOCATE PREPARE add_alert_col_stmt;
+
+-- 旧数据修复：初始化去重与 SLA 布尔字段
+UPDATE alert SET dedup_count = 1 WHERE dedup_count IS NULL OR dedup_count < 1;
+UPDATE alert SET last_triggered_at = created_at WHERE last_triggered_at IS NULL;
+UPDATE alert SET sla_breached = FALSE WHERE sla_breached IS NULL;
+
+-- 告警表索引兼容升级（幂等）
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_status_created');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_status_created ON alert (status, created_at)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_severity_created');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_severity_created ON alert (severity, created_at)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_rule_created');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_rule_created ON alert (rule_id, created_at)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert' AND INDEX_NAME = 'idx_sla_breached');
+SET @idx_sql = IF(@idx_exists = 0, 'CREATE INDEX idx_sla_breached ON alert (sla_breached, status)', 'SELECT 1');
+PREPARE add_alert_idx_stmt FROM @idx_sql;
+EXECUTE add_alert_idx_stmt;
+DEALLOCATE PREPARE add_alert_idx_stmt;
 
 -- 告警状态历史表
 CREATE TABLE IF NOT EXISTS alert_status_history (

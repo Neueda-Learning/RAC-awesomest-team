@@ -18,9 +18,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -154,5 +157,52 @@ public class AlertServiceTest {
 		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
 				() -> alertService.queryAlerts(request));
 		assertEquals("from must not be after to", ex.getMessage());
+	}
+
+	@Test
+	void acknowledge_shouldMarkSlaBreachedWhenAckIsLate() {
+		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
+		alert.setId(105L);
+		alert.setStatus(AlertStatus.OPEN);
+		alert.setAckDueAt(LocalDateTime.now().minusMinutes(1));
+
+		when(alertRepository.findById(105L)).thenReturn(Optional.of(alert));
+		when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Alert result = alertService.acknowledge(105L, "late ack");
+
+		assertNotNull(result.getAckAt());
+		assertTrue(Boolean.TRUE.equals(result.getSlaBreached()));
+	}
+
+	@Test
+	void close_shouldSetResolvedAtAndMarkSlaBreachedWhenResolveIsLate() {
+		Alert alert = new Alert(1L, 11L, "ACC-001", "HIGH");
+		alert.setId(106L);
+		alert.setStatus(AlertStatus.INVESTIGATING);
+		alert.setResolveDueAt(LocalDateTime.now().minusMinutes(5));
+
+		when(alertRepository.findById(106L)).thenReturn(Optional.of(alert));
+		when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Alert result = alertService.close(106L, "late close");
+
+		assertNotNull(result.getResolvedAt());
+		assertTrue(Boolean.TRUE.equals(result.getSlaBreached()));
+	}
+
+	@Test
+	void querySlaBreachedAlerts_shouldForceSlaBreachedFilterTrue() {
+		Alert sample = new Alert(1L, 2L, "ACC-001", "HIGH");
+		sample.setId(66L);
+		sample.setSlaBreached(true);
+		AlertQueryRepository.AlertQueryResult result = new AlertQueryRepository.AlertQueryResult(List.of(sample), 1L);
+		when(alertQueryRepository.query(any(AlertQueryRequest.class))).thenReturn(result);
+
+		alertService.querySlaBreachedAlerts(new AlertQueryRequest());
+
+		ArgumentCaptor<AlertQueryRequest> requestCaptor = ArgumentCaptor.forClass(AlertQueryRequest.class);
+		verify(alertQueryRepository).query(requestCaptor.capture());
+		assertTrue(Boolean.TRUE.equals(requestCaptor.getValue().getSlaBreached()));
 	}
 }

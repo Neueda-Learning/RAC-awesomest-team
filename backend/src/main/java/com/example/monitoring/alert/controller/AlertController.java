@@ -34,6 +34,12 @@ public class AlertController {
         return ResponseEntity.ok(alertService.queryAlerts(request));
     }
 
+    // GET /alerts/sla/breached — 查询超时告警（支持分页与组合筛选）
+    @GetMapping("/sla/breached")
+    public ResponseEntity<AlertQueryResponse> querySlaBreachedAlerts(@ModelAttribute AlertQueryRequest request) {
+        return ResponseEntity.ok(alertService.querySlaBreachedAlerts(request));
+    }
+
     // GET /alerts?status=OPEN — 按状态筛选告警
     @GetMapping(params = "status")
     public ResponseEntity<List<Alert>> getAlertsByStatus(@RequestParam AlertStatus status) {

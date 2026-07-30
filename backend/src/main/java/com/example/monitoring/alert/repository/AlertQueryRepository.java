@@ -33,7 +33,9 @@ public class AlertQueryRepository {
         QueryParts queryParts = buildWhereClause(request);
         String orderBy = buildOrderBy(request);
 
-        String selectSql = "SELECT id, rule_id, transaction_id, account_id, severity, status, created_at, updated_at "
+        String selectSql = "SELECT id, rule_id, transaction_id, account_id, severity, status, "
+                + "dedup_count, last_triggered_at, sla_breached, ack_at, resolved_at, ack_due_at, resolve_due_at, "
+                + "created_at, updated_at "
                 + "FROM alert " + queryParts.whereSql + " " + orderBy + " LIMIT :limit OFFSET :offset";
 
         MapSqlParameterSource pageParams = new MapSqlParameterSource(queryParts.params.getValues());
@@ -68,6 +70,10 @@ public class AlertQueryRepository {
             where.append(" AND rule_id = :ruleId");
             params.addValue("ruleId", request.getRuleId());
         }
+        if (request.getSlaBreached() != null) {
+            where.append(" AND sla_breached = :slaBreached");
+            params.addValue("slaBreached", request.getSlaBreached());
+        }
         if (request.getFrom() != null) {
             where.append(" AND created_at >= :from");
             params.addValue("from", request.getFrom());
@@ -101,6 +107,13 @@ public class AlertQueryRepository {
         alert.setAccountId(rs.getString("account_id"));
         alert.setSeverity(rs.getString("severity"));
         alert.setStatus(AlertStatus.valueOf(rs.getString("status")));
+        alert.setDedupCount(rs.getInt("dedup_count"));
+        alert.setLastTriggeredAt(readDateTime(rs, "last_triggered_at"));
+        alert.setSlaBreached(rs.getBoolean("sla_breached"));
+        alert.setAckAt(readDateTime(rs, "ack_at"));
+        alert.setResolvedAt(readDateTime(rs, "resolved_at"));
+        alert.setAckDueAt(readDateTime(rs, "ack_due_at"));
+        alert.setResolveDueAt(readDateTime(rs, "resolve_due_at"));
         alert.setCreatedAt(readDateTime(rs, "created_at"));
         alert.setUpdatedAt(readDateTime(rs, "updated_at"));
         return alert;

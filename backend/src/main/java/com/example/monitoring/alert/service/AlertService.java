@@ -57,6 +57,15 @@ public class AlertService {
         );
     }
 
+    /**
+     * Returns SLA-breached alerts using the same query and paging contract.
+     */
+    public AlertQueryResponse querySlaBreachedAlerts(AlertQueryRequest request) {
+        AlertQueryRequest normalized = request == null ? new AlertQueryRequest() : request;
+        normalized.setSlaBreached(true);
+        return queryAlerts(normalized);
+    }
+
     public List<Alert> getAllAlerts() {
         return (List<Alert>) alertRepository.findAll();
     }
@@ -146,7 +155,10 @@ public class AlertService {
                 alert.getAccountId(),
                 alert.getSeverity(),
                 alert.getStatus(),
-                alert.getCreatedAt()
+                alert.getCreatedAt(),
+                alert.getDedupCount() == null || alert.getDedupCount() < 1 ? 1 : alert.getDedupCount(),
+                alert.getLastTriggeredAt(),
+                Boolean.TRUE.equals(alert.getSlaBreached())
         );
     }
 
@@ -158,8 +170,18 @@ public class AlertService {
                 .orElseThrow(() -> new IllegalArgumentException("Alert not found: " + alertId));
 
         AlertStatus oldStatus = alert.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+
+        if (newStatus == AlertStatus.ACKNOWLEDGED && alert.getAckAt() == null) {
+            alert.setAckAt(now);
+        }
+        if ((newStatus == AlertStatus.CLOSED || newStatus == AlertStatus.DISMISSED) && alert.getResolvedAt() == null) {
+            alert.setResolvedAt(now);
+        }
+
         alert.setStatus(newStatus);
-        alert.setUpdatedAt(LocalDateTime.now());
+        alert.setUpdatedAt(now);
+        alert.setSlaBreached(AlertSlaPolicy.isSlaBreached(alert));
         alertRepository.save(alert);
 
         historyRepository.save(new AlertStatusHistory(alertId, oldStatus, newStatus, notes));

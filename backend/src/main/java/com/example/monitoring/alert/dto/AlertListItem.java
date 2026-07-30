@@ -15,17 +15,25 @@ public class AlertListItem {
     private String severity;
     private AlertStatus status;
     private LocalDateTime createdAt;
+    private Integer dedupCount;
+    private LocalDateTime lastTriggeredAt;
+    private Boolean slaBreached;
 
     public AlertListItem() {
     }
 
-    public AlertListItem(Long id, Long ruleId, String accountId, String severity, AlertStatus status, LocalDateTime createdAt) {
+    public AlertListItem(Long id, Long ruleId, String accountId, String severity, AlertStatus status,
+                         LocalDateTime createdAt, Integer dedupCount, LocalDateTime lastTriggeredAt,
+                         Boolean slaBreached) {
         this.id = id;
         this.ruleId = ruleId;
         this.accountId = accountId;
         this.severity = severity;
         this.status = status;
         this.createdAt = createdAt;
+        this.dedupCount = dedupCount;
+        this.lastTriggeredAt = lastTriggeredAt;
+        this.slaBreached = slaBreached;
     }
 
     public Long getId() {
@@ -74,6 +82,30 @@ public class AlertListItem {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getDedupCount() {
+        return dedupCount;
+    }
+
+    public void setDedupCount(Integer dedupCount) {
+        this.dedupCount = dedupCount;
+    }
+
+    public LocalDateTime getLastTriggeredAt() {
+        return lastTriggeredAt;
+    }
+
+    public void setLastTriggeredAt(LocalDateTime lastTriggeredAt) {
+        this.lastTriggeredAt = lastTriggeredAt;
+    }
+
+    public Boolean getSlaBreached() {
+        return slaBreached;
+    }
+
+    public void setSlaBreached(Boolean slaBreached) {
+        this.slaBreached = slaBreached;
     }
 }
 

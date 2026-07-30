@@ -13,6 +13,7 @@ public class AlertQueryRequest {
     private String severity;
     private String accountId;
     private Long ruleId;
+    private Boolean slaBreached;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime from;
@@ -69,6 +70,14 @@ public class AlertQueryRequest {
 
     public void setRuleId(Long ruleId) {
         this.ruleId = ruleId;
+    }
+
+    public Boolean getSlaBreached() {
+        return slaBreached;
+    }
+
+    public void setSlaBreached(Boolean slaBreached) {
+        this.slaBreached = slaBreached;
     }
 
     public LocalDateTime getFrom() {
