@@ -1,5 +1,6 @@
 package com.example.monitoring.transaction;
 
+import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.rule.service.RuleEngineService;
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
 import com.example.monitoring.transaction.dto.GenerateTransactionsRequest;
@@ -38,6 +39,9 @@ public class TransactionServiceTest {
     @Mock
     private RuleEngineService ruleEngineService;
 
+    @Mock
+    private AlertRepository alertRepository;
+
     @InjectMocks
     private TransactionService transactionService;
 
@@ -56,13 +60,16 @@ public class TransactionServiceTest {
             tx.setId(1L);
             return tx;
         });
+        when(alertRepository.existsByTransactionId(1L)).thenReturn(true);
 
         Transaction result = transactionService.createTransaction(request);
 
         assertEquals(1L, result.getId());
         assertEquals("USD", result.getCurrency());
         assertNotNull(result.getCreatedAt());
+        assertTrue(Boolean.TRUE.equals(result.getAlertTriggered()));
         verify(ruleEngineService).evaluate(result);
+        verify(alertRepository).existsByTransactionId(1L);
     }
 
     @Test
@@ -101,6 +108,7 @@ public class TransactionServiceTest {
         assertEquals(3, generated.size());
         verify(transactionRepository, times(3)).save(any(Transaction.class));
         verify(ruleEngineService, times(3)).evaluate(any(Transaction.class));
+        verify(alertRepository, times(3)).existsByTransactionId(any(Long.class));
     }
 
     @Test

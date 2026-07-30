@@ -1,5 +1,6 @@
 package com.example.monitoring.transaction.service;
 
+import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.rule.service.RuleEngineService;
 import com.example.monitoring.transaction.dto.CreateTransactionRequest;
 import com.example.monitoring.transaction.dto.GenerateTransactionsRequest;
@@ -23,6 +24,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final RuleEngineService ruleEngineService;
+    private final AlertRepository alertRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -37,10 +39,12 @@ public class TransactionService {
 
     public TransactionService(TransactionRepository transactionRepository,
                               RuleEngineService ruleEngineService,
+                              AlertRepository alertRepository,
                               RestTemplate restTemplate,
                               ObjectMapper objectMapper) {
         this.transactionRepository = transactionRepository;
         this.ruleEngineService = ruleEngineService;
+        this.alertRepository = alertRepository;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
@@ -67,7 +71,7 @@ public class TransactionService {
         // 规则引擎评估（同步执行）
         ruleEngineService.evaluate(saved);
 
-        return saved;
+        return markAlertTriggered(saved);
     }
 
     private String normalizePayeeId(String payeeId) {
@@ -88,22 +92,23 @@ public class TransactionService {
     }
 
     public List<Transaction> getAllTransactions() {
-        return StreamSupport
+        List<Transaction> transactions = StreamSupport
                 .stream(transactionRepository.findAll().spliterator(), false)
                 .collect(java.util.stream.Collectors.toList());
+        return markAlertTriggered(transactions);
     }
 
     public Optional<Transaction> getTransactionById(Long id) {
-        return transactionRepository.findById(id);
+        return transactionRepository.findById(id).map(this::markAlertTriggered);
     }
 
     public List<Transaction> getTransactionsByAccount(String accountId) {
-        return transactionRepository.findByAccountId(accountId);
+        return markAlertTriggered(transactionRepository.findByAccountId(accountId));
     }
 
     // 按描述关键词模糊搜索
     public List<Transaction> searchByDescription(String keyword) {
-        return transactionRepository.searchByDescription("%" + keyword + "%");
+        return markAlertTriggered(transactionRepository.searchByDescription("%" + keyword + "%"));
     }
 
     /**
@@ -134,7 +139,7 @@ public class TransactionService {
 
         // 如果没有金额条件，直接返回
         if (minAmount == null || maxAmount == null) {
-            return candidates;
+            return markAlertTriggered(candidates);
         }
 
         // 获取汇率并按USD范围过滤
@@ -145,7 +150,7 @@ public class TransactionService {
                     .filter(tx -> "USD".equalsIgnoreCase(tx.getCurrency()) &&
                             tx.getAmount().compareTo(minAmount) >= 0 &&
                             tx.getAmount().compareTo(maxAmount) <= 0)
-                    .toList();
+                    .collect(java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), this::markAlertTriggered));
         }
 
         // 用汇率进行转换过滤
@@ -158,7 +163,39 @@ public class TransactionService {
                             amountInUsd.compareTo(minAmount) >= 0 &&
                             amountInUsd.compareTo(maxAmount) <= 0;
                 })
-                .toList();
+                .collect(java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), this::markAlertTriggered));
+    }
+
+    /**
+     * Marks each transaction with whether it has triggered at least one alert.
+     *
+     * @param transactions transactions to enrich
+     * @return the same list instance with alertTriggered populated
+     */
+    private List<Transaction> markAlertTriggered(List<Transaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            return transactions;
+        }
+        transactions.forEach(this::markAlertTriggered);
+        return transactions;
+    }
+
+    /**
+     * Marks one transaction with whether it has triggered at least one alert.
+     *
+     * @param transaction transaction to enrich
+     * @return enriched transaction
+     */
+    private Transaction markAlertTriggered(Transaction transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        if (transaction.getId() == null) {
+            transaction.setAlertTriggered(false);
+            return transaction;
+        }
+        transaction.setAlertTriggered(alertRepository.existsByTransactionId(transaction.getId()));
+        return transaction;
     }
 
     /**
@@ -306,6 +343,7 @@ public class TransactionService {
             );
             Transaction saved = transactionRepository.save(tx);
             ruleEngineService.evaluate(saved);
+            markAlertTriggered(saved);
             result.add(saved);
         }
 

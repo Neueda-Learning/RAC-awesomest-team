@@ -18,6 +18,8 @@ public interface AlertRepository extends CrudRepository<Alert, Long> {
 
     List<Alert> findBySeverity(String severity);
 
+    boolean existsByTransactionId(Long transactionId);
+
     @Query("SELECT * FROM alert "
             + "WHERE rule_id = :ruleId "
             + "AND account_id = :accountId "
