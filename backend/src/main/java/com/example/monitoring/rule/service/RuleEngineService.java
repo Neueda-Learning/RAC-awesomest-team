@@ -1,6 +1,7 @@
 package com.example.monitoring.rule.service;
 
 import com.example.monitoring.alert.entity.Alert;
+import com.example.monitoring.alert.service.AlertSlaPolicy;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.rule.entity.MonitoringRule;
 import com.example.monitoring.rule.entity.RuleCondition;
@@ -19,6 +20,8 @@ import java.util.List;
 
 @Service
 public class RuleEngineService {
+
+    private static final int DEFAULT_DEDUP_WINDOW_MINUTES = 10;
 
     private final MonitoringRuleRepository ruleRepository;
     private final TransactionRepository transactionRepository;
@@ -48,11 +51,45 @@ public class RuleEngineService {
                     : evaluateSimple(transaction, rule);
 
             if (triggered) {
-                Alert alert = new Alert(rule.getId(), transaction.getId(),
-                        transaction.getAccountId(), rule.getSeverity());
-                alertRepository.save(alert);
+                mergeOrCreateAlert(transaction, rule);
             }
         }
+    }
+
+    /**
+     * Deduplicates repetitive alerts within a short time window, otherwise creates a new alert.
+     */
+    private void mergeOrCreateAlert(Transaction transaction, MonitoringRule rule) {
+        int dedupWindowMinutes = resolveDedupWindowMinutes(rule);
+        LocalDateTime triggeredAt = transaction.getCreatedAt() != null ? transaction.getCreatedAt() : LocalDateTime.now();
+        LocalDateTime since = triggeredAt.minusMinutes(dedupWindowMinutes);
+
+        alertRepository.findLatestActiveForDedup(rule.getId(), transaction.getAccountId(), since)
+                .ifPresentOrElse(existing -> {
+                    int currentCount = existing.getDedupCount() == null ? 1 : existing.getDedupCount();
+                    existing.setDedupCount(currentCount + 1);
+                    existing.setLastTriggeredAt(triggeredAt);
+                    existing.setTransactionId(transaction.getId());
+                    existing.setUpdatedAt(triggeredAt);
+                    alertRepository.save(existing);
+                }, () -> {
+                    Alert alert = new Alert(rule.getId(), transaction.getId(), transaction.getAccountId(), rule.getSeverity());
+                    alert.setCreatedAt(triggeredAt);
+                    alert.setUpdatedAt(triggeredAt);
+                    alert.setLastTriggeredAt(triggeredAt);
+                    alert.setDedupCount(1);
+                    alert.setAckDueAt(AlertSlaPolicy.calculateAckDueAt(rule.getSeverity(), triggeredAt));
+                    alert.setResolveDueAt(AlertSlaPolicy.calculateResolveDueAt(rule.getSeverity(), triggeredAt));
+                    alert.setSlaBreached(false);
+                    alertRepository.save(alert);
+                });
+    }
+
+    private int resolveDedupWindowMinutes(MonitoringRule rule) {
+        if (rule.getTimeWindowMinutes() != null && rule.getTimeWindowMinutes() > 0) {
+            return rule.getTimeWindowMinutes();
+        }
+        return DEFAULT_DEDUP_WINDOW_MINUTES;
     }
 
     private boolean evaluateSimple(Transaction tx, MonitoringRule rule) {

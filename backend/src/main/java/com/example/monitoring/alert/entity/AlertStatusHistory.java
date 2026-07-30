@@ -11,14 +11,14 @@ public class AlertStatusHistory {
     @Id
     private Long id;
     private Long alertId;
-    private String oldStatus;
-    private String newStatus;
+    private AlertStatus oldStatus;
+    private AlertStatus newStatus;
     private String notes;
     private LocalDateTime changedAt;
 
     public AlertStatusHistory() {}
 
-    public AlertStatusHistory(Long alertId, String oldStatus, String newStatus, String notes) {
+    public AlertStatusHistory(Long alertId, AlertStatus oldStatus, AlertStatus newStatus, String notes) {
         this.alertId = alertId;
         this.oldStatus = oldStatus;
         this.newStatus = newStatus;
@@ -32,11 +32,11 @@ public class AlertStatusHistory {
     public Long getAlertId() { return alertId; }
     public void setAlertId(Long alertId) { this.alertId = alertId; }
 
-    public String getOldStatus() { return oldStatus; }
-    public void setOldStatus(String oldStatus) { this.oldStatus = oldStatus; }
+    public AlertStatus getOldStatus() { return oldStatus; }
+    public void setOldStatus(AlertStatus oldStatus) { this.oldStatus = oldStatus; }
 
-    public String getNewStatus() { return newStatus; }
-    public void setNewStatus(String newStatus) { this.newStatus = newStatus; }
+    public AlertStatus getNewStatus() { return newStatus; }
+    public void setNewStatus(AlertStatus newStatus) { this.newStatus = newStatus; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
