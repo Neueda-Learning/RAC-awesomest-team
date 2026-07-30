@@ -22,16 +22,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
-    // 处理业务逻辑错误（如找不到资源）
+    // Resource lookup failures are 404; other illegal arguments are invalid client input.
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         String message = ex.getMessage();
-        // 参数范围校验错误 → 400
-        if (message != null && (message.contains("must not be greater") || message.contains("must not be after"))) {
-            return ResponseEntity.badRequest().body(Map.of("error", message));
+        if (message != null && message.contains("not found:")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", message));
         }
-        // 找不到资源 → 404
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", message));
+        return ResponseEntity.badRequest().body(Map.of("error", message == null ? "Invalid request" : message));
     }
 
     // 处理状态流转错误

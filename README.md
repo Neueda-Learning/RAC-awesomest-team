@@ -121,8 +121,13 @@ After backend startup, you can open:
 ### Alerts
 - `GET /alerts`
 - `GET /alerts?status=OPEN`
+- `GET /alerts/query` - server-side filtering, sorting, and pagination
 - `GET /alerts/{id}`
 - `GET /alerts/{id}/history`
+- `GET /alerts/metrics/average-resolution?from=...&to=...&severity=HIGH`
+- `GET /alerts/metrics/trend?days=7&severity=HIGH`
+- `GET /alerts/metrics/summary?from=...&to=...&severity=HIGH`
+- `GET /alerts/metrics/dashboard?days=30&severity=HIGH`
 - `PATCH /alerts/{id}/acknowledge`
 - `PATCH /alerts/{id}/investigate`
 - `PATCH /alerts/{id}/close`
@@ -230,6 +235,8 @@ Ensure Maven uses JDK 17 for this project.
 - `documents/unittest_and_db_data_generation.md`
 - `documents/port_release_troubleshooting.md`
 - `documents/7.27项目重构.md`
+- `documents/alert_metrics_2026-07-30.md`
+- `documents/dashboard_modification_and_plan_2026-07-30.md`
 
 ## Contribution Notes
 - Do not push directly to `main`

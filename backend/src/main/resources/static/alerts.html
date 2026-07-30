@@ -138,9 +138,42 @@
 
         .stat-label { font-size: 13px; color: #666; }
 
+        .stat-meta {
+            min-height: 18px;
+            margin-top: 7px;
+            color: #8a9099;
+            font-size: 11px;
+        }
+
+        .dashboard-section { margin-bottom: 24px; }
+
+        .dashboard-kpi-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .dashboard-section-heading {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 0 0 10px;
+        }
+
+        .dashboard-section-title {
+            color: #1a1a2e;
+            font-size: 16px;
+            font-weight: 750;
+        }
+
+        .dashboard-section-subtitle {
+            color: #7a8089;
+            font-size: 12px;
+            text-align: right;
+        }
+
         .charts-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 16px;
             margin-bottom: 20px;
         }
@@ -156,12 +189,26 @@
             font-size: 14px;
             font-weight: 700;
             color: #333;
-            margin-bottom: 8px;
+        }
+
+        .chart-subtitle {
+            color: #888;
+            font-size: 11px;
+            margin: 2px 0 10px;
         }
 
         .chart-wrap {
             height: 260px;
             position: relative;
+        }
+
+        .chart-wrap.large { height: 310px; }
+
+        .performance-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
         }
 
         .block-title {
@@ -458,15 +505,30 @@
         .toast.success { background: #28a745; }
         .toast.error { background: #d6334c; }
 
+        @media (max-width: 1200px) {
+            .dashboard-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
         @media (max-width: 980px) {
             .sidebar { width: 64px; }
             .sidebar-logo h2, .sidebar-logo p, .nav-item span:nth-child(2), .nav-section-title { display: none; }
             .nav-item { justify-content: center; padding: 12px 8px; }
             .main { margin-left: 64px; }
             .charts-grid { grid-template-columns: 1fr; }
+            .performance-grid { grid-template-columns: 1fr; }
+            .dashboard-section-heading { align-items: start; flex-direction: column; gap: 2px; }
+            .dashboard-section-subtitle { text-align: left; }
             .content-area { padding: 14px; }
             .top-bar { padding: 12px 14px; }
             .page-title { font-size: 18px; }
+        }
+
+        @media (max-width: 720px) {
+            .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 520px) {
+            .dashboard-kpi-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -506,23 +568,100 @@
 
         <div class="content-area">
             <section id="page-dashboard" class="page active">
-                <div class="stats-grid">
-                    <div class="stat-card blue"><div id="stat-total" class="stat-value">-</div><div class="stat-label">Total Alerts</div></div>
-                    <div class="stat-card red"><div id="stat-open" class="stat-value">-</div><div class="stat-label">OPEN</div></div>
-                    <div class="stat-card orange"><div id="stat-ack" class="stat-value">-</div><div class="stat-label">ACKNOWLEDGED</div></div>
-                    <div class="stat-card blue"><div id="stat-inv" class="stat-value">-</div><div class="stat-label">INVESTIGATING</div></div>
-                    <div class="stat-card green"><div id="stat-closed" class="stat-value">-</div><div class="stat-label">CLOSED</div></div>
-                    <div class="stat-card green"><div id="stat-dismissed" class="stat-value">-</div><div class="stat-label">DISMISSED</div></div>
+                <div class="filter-panel">
+                    <div class="filter-title">Dashboard Reporting Window (UTC)</div>
+                    <div class="filter-grid">
+                        <div class="form-group">
+                            <label for="dashboard-days">Recent Window</label>
+                            <select id="dashboard-days">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="dashboard-severity">Severity</label>
+                            <select id="dashboard-severity">
+                                <option value="">All severities</option>
+                                <option value="HIGH">HIGH</option>
+                                <option value="MEDIUM">MEDIUM</option>
+                                <option value="LOW">LOW</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-primary" onclick="loadDashboardMetrics()">Apply</button>
+                        <button type="button" class="btn btn-outline" onclick="resetDashboardFilters()">Reset</button>
+                    </div>
                 </div>
 
+                <div class="dashboard-section-heading">
+                    <div class="dashboard-section-title">Operational Snapshot</div>
+                    <div class="dashboard-section-subtitle">Compact indicators for the selected UTC reporting window</div>
+                </div>
+
+                <div class="stats-grid dashboard-kpi-grid dashboard-section">
+                    <div class="stat-card blue"><div id="stat-total" class="stat-value">-</div><div class="stat-label">Alerts Generated</div><div id="stat-total-meta" class="stat-meta">Selected severity</div></div>
+                    <div class="stat-card blue"><div id="stat-transactions" class="stat-value">-</div><div class="stat-label">Transactions Recorded</div><div class="stat-meta">All severities</div></div>
+                    <div class="stat-card orange"><div id="stat-trigger-rate" class="stat-value">-</div><div class="stat-label">Alert Trigger Rate</div><div class="stat-meta">Alerts per transaction</div></div>
+                    <div class="stat-card orange"><div id="stat-average-ack" class="stat-value">-</div><div class="stat-label">Average Acknowledge Time</div><div id="stat-average-ack-meta" class="stat-meta">No acknowledged alerts</div></div>
+                    <div class="stat-card green"><div id="stat-average-resolution" class="stat-value">-</div><div class="stat-label">Average Resolution Time</div><div id="stat-average-resolution-meta" class="stat-meta">No resolved alerts</div></div>
+                    <div class="stat-card red"><div id="stat-sla-breach" class="stat-value">-</div><div class="stat-label">SLA Breach Rate</div><div class="stat-meta">Created alerts</div></div>
+                    <div class="stat-card orange"><div id="stat-false-positive" class="stat-value">-</div><div class="stat-label">False Positive Rate</div><div class="stat-meta">Dismissed / resolved</div></div>
+                </div>
+
+                <div class="dashboard-section-heading">
+                    <div class="dashboard-section-title">Activity Trends</div>
+                    <div class="dashboard-section-subtitle">Daily zero-filled UTC buckets</div>
+                </div>
+                <div class="charts-grid dashboard-section">
+                    <div class="chart-card">
+                        <div class="chart-title">Transactions Over Time</div>
+                        <div class="chart-subtitle">All recorded transactions, independent of severity filter</div>
+                        <div class="chart-wrap"><canvas id="transactionTrendChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Alerts Over Time</div>
+                        <div class="chart-subtitle">Generated alert records in the selected severity scope</div>
+                        <div class="chart-wrap"><canvas id="alertTrendChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-section-heading">
+                    <div class="dashboard-section-title">Response & SLA Performance</div>
+                    <div class="dashboard-section-subtitle">Lifecycle speed and handling quality</div>
+                </div>
+                <div class="performance-grid dashboard-section">
+                    <div class="chart-card">
+                        <div class="chart-title">Alert Response Times Trend</div>
+                        <div class="chart-subtitle">Average acknowledge and resolution duration by completion day</div>
+                        <div class="chart-wrap large"><canvas id="responseTimeTrendChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">SLA Breach Rate Trend</div>
+                        <div class="chart-subtitle">Breached alerts as a percentage of alerts created each day</div>
+                        <div class="chart-wrap large"><canvas id="slaTrendChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-section-heading">
+                    <div class="dashboard-section-title">Alert Composition</div>
+                    <div class="dashboard-section-subtitle">Where alert workload comes from</div>
+                </div>
                 <div class="charts-grid">
                     <div class="chart-card">
                         <div class="chart-title">Status Distribution</div>
+                        <div class="chart-subtitle">Current lifecycle state of alerts created in the window</div>
                         <div class="chart-wrap"><canvas id="statusPieChart"></canvas></div>
                     </div>
                     <div class="chart-card">
                         <div class="chart-title">Severity Distribution</div>
+                        <div class="chart-subtitle">Alert volume by configured priority</div>
                         <div class="chart-wrap"><canvas id="severityBarChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Alerts by Rule</div>
+                        <div class="chart-subtitle">Rules generating the most alert records</div>
+                        <div class="chart-wrap"><canvas id="ruleAlertsChart"></canvas></div>
                     </div>
                 </div>
             </section>
@@ -616,10 +755,16 @@
         const PAGE_SIZE = 10;
         const transactionCache = new Map();
         let allAlerts = [];
+        let alertsLoaded = false;
         let pendingPage = 1;
         let resolvedPage = 1;
         let statusPieChart;
         let severityBarChart;
+        let alertTrendChart;
+        let transactionTrendChart;
+        let responseTimeTrendChart;
+        let slaTrendChart;
+        let ruleAlertsChart;
 
         function esc(v) {
             return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -662,9 +807,17 @@
             }[page] || 'Alert Management';
             document.getElementById('page-title').textContent = title;
 
-            if (page === 'dashboard') renderDashboard();
-            if (page === 'pending') renderPending();
-            if (page === 'resolved') renderResolved();
+            if (page === 'dashboard') {
+                loadDashboardMetrics();
+            }
+            if (page === 'pending' || page === 'resolved') {
+                if (!alertsLoaded) {
+                    loadAllAlerts(page);
+                    return;
+                }
+                if (page === 'pending') renderPending();
+                if (page === 'resolved') renderResolved();
+            }
         }
 
         function statusBadge(status) {
@@ -833,35 +986,81 @@
             renderResolved();
         }
 
-        function renderDashboard() {
-            const open = allAlerts.filter(a => a.status === 'OPEN').length;
-            const ack = allAlerts.filter(a => a.status === 'ACKNOWLEDGED').length;
-            const inv = allAlerts.filter(a => a.status === 'INVESTIGATING').length;
-            const closed = allAlerts.filter(a => a.status === 'CLOSED').length;
-            const dismissed = allAlerts.filter(a => a.status === 'DISMISSED').length;
+        function formatDuration(seconds) {
+            if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return 'N/A';
+            const totalSeconds = Math.max(0, Math.round(Number(seconds)));
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            if (days) return `${days}d ${hours}h`;
+            if (hours) return `${hours}h ${minutes}m`;
+            if (minutes) return `${minutes}m`;
+            return `${totalSeconds}s`;
+        }
 
-            document.getElementById('stat-total').textContent = allAlerts.length;
-            document.getElementById('stat-open').textContent = open;
-            document.getElementById('stat-ack').textContent = ack;
-            document.getElementById('stat-inv').textContent = inv;
-            document.getElementById('stat-closed').textContent = closed;
-            document.getElementById('stat-dismissed').textContent = dismissed;
+        function formatPercent(value) {
+            const number = Number(value);
+            return `${Number.isFinite(number) ? number.toFixed(2) : '0.00'}%`;
+        }
+
+        function renderDashboard(metrics) {
+            const kpis = metrics.kpis || {};
+            const statusCounts = metrics.statusCounts || {};
+            const severityCounts = metrics.severityCounts || {};
+            const open = statusCounts.OPEN || 0;
+            const ack = statusCounts.ACKNOWLEDGED || 0;
+            const inv = statusCounts.INVESTIGATING || 0;
+            const closed = statusCounts.CLOSED || 0;
+            const dismissed = statusCounts.DISMISSED || 0;
+
+            document.getElementById('stat-total').textContent = kpis.totalAlerts || 0;
+            document.getElementById('stat-total-meta').textContent =
+                metrics.severity ? `${metrics.severity} severity` : 'All severities';
+            document.getElementById('stat-transactions').textContent = kpis.totalTransactions || 0;
+            document.getElementById('stat-trigger-rate').textContent =
+                formatPercent(kpis.alertTriggerRatePercent);
+            document.getElementById('stat-average-ack').textContent =
+                formatDuration(kpis.averageAcknowledgeSeconds);
+            document.getElementById('stat-average-ack-meta').textContent =
+                `${kpis.acknowledgedAlertCount || 0} acknowledged alert(s)`;
+            document.getElementById('stat-average-resolution').textContent =
+                formatDuration(kpis.averageResolutionSeconds);
+            document.getElementById('stat-average-resolution-meta').textContent =
+                `${kpis.resolvedAlertCount || 0} resolved alert(s)`;
+            document.getElementById('stat-sla-breach').textContent =
+                formatPercent(kpis.slaBreachRatePercent);
+            document.getElementById('stat-false-positive').textContent =
+                formatPercent(kpis.falsePositiveRatePercent);
 
             if (statusPieChart) statusPieChart.destroy();
             if (severityBarChart) severityBarChart.destroy();
+            if (alertTrendChart) alertTrendChart.destroy();
+            if (transactionTrendChart) transactionTrendChart.destroy();
+            if (responseTimeTrendChart) responseTimeTrendChart.destroy();
+            if (slaTrendChart) slaTrendChart.destroy();
+            if (ruleAlertsChart) ruleAlertsChart.destroy();
 
             statusPieChart = new Chart(document.getElementById('statusPieChart'), {
-                type: 'pie',
+                type: 'doughnut',
                 data: {
                     labels: ['OPEN', 'ACKNOWLEDGED', 'INVESTIGATING', 'CLOSED', 'DISMISSED'],
-                    datasets: [{ data: [open, ack, inv, closed, dismissed], backgroundColor: ['#d6334c', '#8a6d1c', '#1a5fb4', '#1e7e34', '#666'] }]
+                    datasets: [{
+                        data: [open, ack, inv, closed, dismissed],
+                        backgroundColor: ['#d6334c', '#d99b2b', '#3b82c4', '#2f9e55', '#7a8089'],
+                        borderWidth: 0
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '58%',
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } }
+                }
             });
 
-            const high = allAlerts.filter(a => a.severity === 'HIGH').length;
-            const medium = allAlerts.filter(a => a.severity === 'MEDIUM').length;
-            const low = allAlerts.filter(a => a.severity === 'LOW').length;
+            const high = severityCounts.HIGH || 0;
+            const medium = severityCounts.MEDIUM || 0;
+            const low = severityCounts.LOW || 0;
 
             severityBarChart = new Chart(document.getElementById('severityBarChart'), {
                 type: 'bar',
@@ -871,6 +1070,188 @@
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grace: '10%', ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
             });
+
+            const alertBuckets = metrics.alertTrend || [];
+            alertTrendChart = new Chart(document.getElementById('alertTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: alertBuckets.map(bucket => bucket.date),
+                    datasets: [{
+                        label: 'Alerts',
+                        data: alertBuckets.map(bucket => bucket.count),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.16)',
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const transactionBuckets = metrics.transactionTrend || [];
+            transactionTrendChart = new Chart(document.getElementById('transactionTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: transactionBuckets.map(bucket => bucket.date),
+                    datasets: [{
+                        label: 'Transactions',
+                        data: transactionBuckets.map(bucket => bucket.count),
+                        borderColor: '#0b8f87',
+                        backgroundColor: 'rgba(11, 143, 135, 0.14)',
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const responseBuckets = metrics.responseTimeTrend || [];
+            responseTimeTrendChart = new Chart(document.getElementById('responseTimeTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: responseBuckets.map(bucket => bucket.date),
+                    datasets: [
+                        {
+                            label: 'Acknowledge Time',
+                            data: responseBuckets.map(bucket => bucket.averageAcknowledgeSeconds),
+                            borderColor: '#d99b2b',
+                            backgroundColor: 'rgba(217, 155, 43, 0.12)',
+                            tension: 0.25,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Resolution Time',
+                            data: responseBuckets.map(bucket => bucket.averageResolutionSeconds),
+                            borderColor: '#2f9e55',
+                            backgroundColor: 'rgba(47, 158, 85, 0.12)',
+                            tension: 0.25,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => formatDuration(value) }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true } },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.dataset.label}: ${formatDuration(context.raw)}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            const slaBuckets = metrics.slaTrend || [];
+            slaTrendChart = new Chart(document.getElementById('slaTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: slaBuckets.map(bucket => bucket.date),
+                    datasets: [{
+                        label: 'SLA Breach Rate',
+                        data: slaBuckets.map(bucket => bucket.breachRatePercent),
+                        borderColor: '#d6334c',
+                        backgroundColor: 'rgba(214, 51, 76, 0.14)',
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            suggestedMax: 100,
+                            ticks: { callback: value => `${value}%` }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: context => {
+                                    const bucket = slaBuckets[context.dataIndex];
+                                    return `${formatPercent(context.raw)} (${bucket.breachedAlerts}/${bucket.totalAlerts})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const ruleBuckets = metrics.alertsByRule || [];
+            const ruleData = ruleBuckets.length
+                ? ruleBuckets
+                : [{ ruleId: '-', ruleName: 'No alerts', count: 0 }];
+            ruleAlertsChart = new Chart(document.getElementById('ruleAlertsChart'), {
+                type: 'bar',
+                data: {
+                    labels: ruleData.map(rule => `${rule.ruleName} (#${rule.ruleId})`),
+                    datasets: [{
+                        label: 'Alerts',
+                        data: ruleData.map(rule => rule.count),
+                        backgroundColor: '#5f6fcf',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        async function fetchJson(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        }
+
+        async function loadDashboardMetrics() {
+            const days = Number(document.getElementById('dashboard-days').value || 30);
+            const severity = document.getElementById('dashboard-severity').value;
+            const params = new URLSearchParams({ days: String(days) });
+            if (severity) {
+                params.set('severity', severity);
+            }
+
+            try {
+                const metrics = await fetchJson(`${API}/alerts/metrics/dashboard?${params}`);
+                renderDashboard(metrics);
+            } catch (e) {
+                showToast(`Failed to load dashboard metrics: ${e.message}`, 'error');
+            }
+        }
+
+        function resetDashboardFilters() {
+            document.getElementById('dashboard-days').value = '30';
+            document.getElementById('dashboard-severity').value = '';
+            loadDashboardMetrics();
         }
 
         function renderPending() {
@@ -954,7 +1335,7 @@
                 loadAllAlerts('resolved');
                 return;
             }
-            loadAllAlerts('dashboard');
+            loadDashboardMetrics();
         }
 
         async function changeStatus(id, action) {
@@ -978,7 +1359,7 @@
                 }
 
                 showToast(`Alert #${id} updated.`, 'success');
-                await loadAllAlerts();
+                await Promise.all([loadAllAlerts(), loadDashboardMetrics()]);
             } catch (e) {
                 showToast(`Update failed: ${e.message}`, 'error');
             }
@@ -1025,9 +1406,9 @@
                 const res = await fetch(`${API}/alerts`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 allAlerts = await res.json();
+                alertsLoaded = true;
 
                 const activePage = document.querySelector('.page.active')?.id || 'page-dashboard';
-                renderDashboard();
                 renderPending();
                 renderResolved();
 
@@ -1045,7 +1426,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadAllAlerts();
+            loadDashboardMetrics();
         });
     </script>
 </body>

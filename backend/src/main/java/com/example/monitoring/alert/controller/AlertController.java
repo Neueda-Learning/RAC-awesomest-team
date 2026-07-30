@@ -1,15 +1,21 @@
 package com.example.monitoring.alert.controller;
 
+import com.example.monitoring.alert.dto.AlertAverageResolutionResponse;
+import com.example.monitoring.alert.dto.AlertDashboardMetricsResponse;
+import com.example.monitoring.alert.dto.AlertMetricsSummaryResponse;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
+import com.example.monitoring.alert.dto.AlertTrendResponse;
 import com.example.monitoring.alert.dto.UpdateAlertStatusRequest;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
+import com.example.monitoring.alert.service.AlertMetricsService;
 import com.example.monitoring.alert.service.AlertService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -17,9 +23,11 @@ import java.util.List;
 public class AlertController {
 
     private final AlertService alertService;
+    private final AlertMetricsService alertMetricsService;
 
-    public AlertController(AlertService alertService) {
+    public AlertController(AlertService alertService, AlertMetricsService alertMetricsService) {
         this.alertService = alertService;
+        this.alertMetricsService = alertMetricsService;
     }
 
     // GET /alerts — 查看所有告警
@@ -38,6 +46,40 @@ public class AlertController {
     @GetMapping("/sla/breached")
     public ResponseEntity<AlertQueryResponse> querySlaBreachedAlerts(@ModelAttribute AlertQueryRequest request) {
         return ResponseEntity.ok(alertService.querySlaBreachedAlerts(request));
+    }
+
+    // Average creation-to-resolution time for alerts resolved within the UTC reporting range.
+    @GetMapping("/metrics/average-resolution")
+    public ResponseEntity<AlertAverageResolutionResponse> getAverageResolution(
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false) String severity) {
+        return ResponseEntity.ok(alertMetricsService.getAverageResolution(from, to, severity));
+    }
+
+    // UTC day buckets for the most recent 7 or 30 days, including days with no alerts.
+    @GetMapping("/metrics/trend")
+    public ResponseEntity<AlertTrendResponse> getRecentTrend(
+            @RequestParam(defaultValue = "7") int days,
+            @RequestParam(required = false) String severity) {
+        return ResponseEntity.ok(alertMetricsService.getRecentTrend(days, severity));
+    }
+
+    // Compact server-side counts used by dashboard cards and distribution charts.
+    @GetMapping("/metrics/summary")
+    public ResponseEntity<AlertMetricsSummaryResponse> getMetricsSummary(
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false) String severity) {
+        return ResponseEntity.ok(alertMetricsService.getSummary(from, to, severity));
+    }
+
+    // Complete compact payload for all dashboard cards and charts.
+    @GetMapping("/metrics/dashboard")
+    public ResponseEntity<AlertDashboardMetricsResponse> getDashboardMetrics(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(required = false) String severity) {
+        return ResponseEntity.ok(alertMetricsService.getDashboardMetrics(days, severity));
     }
 
     // GET /alerts?status=OPEN — 按状态筛选告警
