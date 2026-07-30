@@ -6,16 +6,25 @@ import com.example.monitoring.alert.dto.AlertMetricsSummaryResponse;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.AlertTrendResponse;
+import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
+import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.dto.UpdateAlertStatusRequest;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
 import com.example.monitoring.alert.service.AlertMetricsService;
 import com.example.monitoring.alert.service.AlertService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -48,6 +57,33 @@ public class AlertController {
         return ResponseEntity.ok(alertService.querySlaBreachedAlerts(request));
     }
 
+    // POST /alerts/bulk/status — apply one lifecycle action to up to 100 alerts.
+    @PostMapping("/bulk/status")
+    public ResponseEntity<BulkAlertStatusResponse> bulkChangeStatus(
+            @Valid @RequestBody BulkAlertStatusRequest request) {
+        return ResponseEntity.ok(alertService.bulkChangeStatus(request));
+    }
+
+    // GET /alerts/export — filtered UTF-8 CSV export (maximum 5,000 alerts).
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<byte[]> exportAlerts(
+            @ModelAttribute AlertQueryRequest request,
+            @RequestParam(defaultValue = "csv") String format) {
+        if (!"csv".equalsIgnoreCase(format)) {
+            throw new IllegalArgumentException("format must be csv");
+        }
+
+        byte[] csv = alertService.exportAlertsCsv(request);
+        String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+                .withZone(ZoneOffset.UTC)
+                .format(Instant.now());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"alerts-" + timestamp + ".csv\"")
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(csv);
+    }
+
     // Average creation-to-resolution time for alerts resolved within the UTC reporting range.
     @GetMapping("/metrics/average-resolution")
     public ResponseEntity<AlertAverageResolutionResponse> getAverageResolution(
@@ -78,7 +114,14 @@ public class AlertController {
     @GetMapping("/metrics/dashboard")
     public ResponseEntity<AlertDashboardMetricsResponse> getDashboardMetrics(
             @RequestParam(defaultValue = "30") int days,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String severity) {
+        if (from != null || to != null) {
+            return ResponseEntity.ok(alertMetricsService.getDashboardMetrics(from, to, severity));
+        }
         return ResponseEntity.ok(alertMetricsService.getDashboardMetrics(days, severity));
     }
 

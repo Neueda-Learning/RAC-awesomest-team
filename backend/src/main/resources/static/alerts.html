@@ -265,6 +265,15 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
         }
 
+        .custom-date-group { display: none; }
+        .custom-date-group.show { display: flex; }
+
+        .filter-summary {
+            margin-top: 10px;
+            color: #657080;
+            font-size: 12px;
+        }
+
         .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
         .pagination {
@@ -329,12 +338,65 @@
             border: 1px solid #667eea;
         }
 
+        .btn[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: none;
+        }
+
+        .bulk-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #f5f6ff;
+            border: 1px solid #dfe3ff;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+        }
+
+        .bulk-selection {
+            color: #353b67;
+            font-size: 13px;
+        }
+
+        .bulk-selection strong {
+            display: inline-block;
+            min-width: 18px;
+            color: #5b67c8;
+            font-size: 16px;
+        }
+
+        .bulk-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .checkbox-cell {
+            width: 38px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .checkbox-cell input {
+            width: 16px;
+            height: 16px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+
         .card {
             background: #fff;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
             overflow: hidden;
         }
+
+        .table-scroll { overflow-x: auto; }
+        #pending-table, #resolved-table { min-width: 1080px; }
 
         table { width: 100%; border-collapse: collapse; }
 
@@ -529,6 +591,9 @@
 
         @media (max-width: 520px) {
             .dashboard-kpi-grid { grid-template-columns: 1fr; }
+            .bulk-toolbar { align-items: stretch; }
+            .bulk-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+            .bulk-actions .btn { padding-left: 8px; padding-right: 8px; }
         }
     </style>
 </head>
@@ -573,10 +638,19 @@
                     <div class="filter-grid">
                         <div class="form-group">
                             <label for="dashboard-days">Recent Window</label>
-                            <select id="dashboard-days">
+                            <select id="dashboard-days" onchange="toggleDashboardDateInputs()">
                                 <option value="7">Last 7 days</option>
                                 <option value="30" selected>Last 30 days</option>
+                                <option value="custom">Custom date range</option>
                             </select>
+                        </div>
+                        <div id="dashboard-from-group" class="form-group custom-date-group">
+                            <label for="dashboard-from">Start Date (UTC)</label>
+                            <input id="dashboard-from" type="date" disabled>
+                        </div>
+                        <div id="dashboard-to-group" class="form-group custom-date-group">
+                            <label for="dashboard-to">End Date (UTC)</label>
+                            <input id="dashboard-to" type="date" disabled>
                         </div>
                         <div class="form-group">
                             <label for="dashboard-severity">Severity</label>
@@ -592,6 +666,7 @@
                         <button type="button" class="btn btn-primary" onclick="loadDashboardMetrics()">Apply</button>
                         <button type="button" class="btn btn-outline" onclick="resetDashboardFilters()">Reset</button>
                     </div>
+                    <div id="dashboard-window-summary" class="filter-summary">Showing the most recent 30 UTC days.</div>
                 </div>
 
                 <div class="dashboard-section-heading">
@@ -693,12 +768,25 @@
                     </div>
                 </div>
 
+                <div class="bulk-toolbar" aria-label="Pending alert batch operations">
+                    <div class="bulk-selection"><strong id="pending-selected-count">0</strong> selected</div>
+                    <div class="bulk-actions">
+                        <button type="button" class="btn btn-primary bulk-status-btn" data-bulk-action disabled onclick="bulkChangeStatus('ACKNOWLEDGE')">Acknowledge</button>
+                        <button type="button" class="btn btn-outline bulk-status-btn" data-bulk-action disabled onclick="bulkChangeStatus('INVESTIGATE')">Investigate</button>
+                        <button type="button" class="btn btn-outline bulk-status-btn" data-bulk-action disabled onclick="bulkChangeStatus('CLOSE')">Close</button>
+                        <button type="button" class="btn btn-outline bulk-status-btn" data-bulk-action disabled onclick="bulkChangeStatus('DISMISS')">Dismiss</button>
+                        <button type="button" class="btn btn-outline" onclick="exportAlerts('pending')">Export CSV</button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div id="pending-loading" class="loading">Loading pending alerts...</div>
-                    <table id="pending-table" style="display: none;">
-                        <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
-                        <tbody id="pending-tbody"></tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table id="pending-table" style="display: none;">
+                            <thead><tr><th class="checkbox-cell"><input id="pending-select-all" type="checkbox" aria-label="Select all alerts on this page" onchange="togglePendingSelectAll(this.checked)"></th><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                            <tbody id="pending-tbody"></tbody>
+                        </table>
+                    </div>
                     <div id="pending-pagination" class="pagination"></div>
                     <div id="pending-empty" class="empty">No pending alerts found.</div>
                 </div>
@@ -720,15 +808,18 @@
                         <button type="button" class="btn btn-primary" onclick="renderResolved()">Apply</button>
                         <button type="button" class="btn btn-outline" onclick="clearResolvedFilters()">Clear</button>
                         <button type="button" class="btn btn-outline" onclick="refreshAlertsPage('resolved')">Refresh</button>
+                        <button type="button" class="btn btn-outline" onclick="exportAlerts('resolved')">Export CSV</button>
                     </div>
                 </div>
 
                 <div class="card">
                     <div id="resolved-loading" class="loading">Loading resolved alerts...</div>
-                    <table id="resolved-table" style="display: none;">
-                        <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
-                        <tbody id="resolved-tbody"></tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table id="resolved-table" style="display: none;">
+                            <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                            <tbody id="resolved-tbody"></tbody>
+                        </table>
+                    </div>
                     <div id="resolved-pagination" class="pagination"></div>
                     <div id="resolved-empty" class="empty">No resolved alerts found.</div>
                 </div>
@@ -753,7 +844,11 @@
         const pendingStatuses = ['OPEN', 'ACKNOWLEDGED', 'INVESTIGATING'];
         const resolvedStatuses = ['CLOSED', 'DISMISSED'];
         const PAGE_SIZE = 10;
+        const MAX_BULK_SELECTION = 100;
         const transactionCache = new Map();
+        const pendingSelectedIds = new Set();
+        let pendingVisiblePageIds = [];
+        let bulkRequestInFlight = false;
         let allAlerts = [];
         let alertsLoaded = false;
         let pendingPage = 1;
@@ -844,8 +939,13 @@
             return `<div class="row-actions"><button type="button" class="btn-mini" onclick="event.stopPropagation(); openHistory(${id})">History</button></div>`;
         }
 
-        function renderAlertRow(alert) {
+        function renderAlertRow(alert, selectable = false) {
+            const selectionCell = selectable
+                ? `<td class="checkbox-cell" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select alert ${esc(alert.id)}" ${pendingSelectedIds.has(alert.id) ? 'checked' : ''} onchange="togglePendingSelection(${alert.id}, this.checked)"></td>`
+                : '';
+            const detailColspan = selectable ? 10 : 9;
             return `<tr class="clickable-row" onclick="toggleDetail(${alert.id}, ${alert.transactionId})">
+                ${selectionCell}
                 <td>#${esc(alert.id)}</td>
                 <td>${esc(alert.accountId)}</td>
                 <td>${esc(alert.ruleId)}</td>
@@ -857,8 +957,56 @@
                 <td>${renderActionButtons(alert)}</td>
             </tr>
             <tr id="detail-${alert.id}" class="detail-row" style="display:none;">
-                <td colspan="9"><div id="detail-content-${alert.id}" class="detail-box">Loading transaction details...</div></td>
+                <td colspan="${detailColspan}"><div id="detail-content-${alert.id}" class="detail-box">Loading transaction details...</div></td>
             </tr>`;
+        }
+
+        function togglePendingSelection(id, selected) {
+            if (selected) {
+                if (pendingSelectedIds.size >= MAX_BULK_SELECTION) {
+                    showToast(`You can select at most ${MAX_BULK_SELECTION} alerts.`, 'error');
+                    renderPending();
+                    return;
+                }
+                pendingSelectedIds.add(id);
+            } else {
+                pendingSelectedIds.delete(id);
+            }
+            updatePendingSelectionUi();
+        }
+
+        function togglePendingSelectAll(selected) {
+            pendingVisiblePageIds.forEach(id => {
+                if (selected) {
+                    if (pendingSelectedIds.size < MAX_BULK_SELECTION) {
+                        pendingSelectedIds.add(id);
+                    }
+                } else {
+                    pendingSelectedIds.delete(id);
+                }
+            });
+            renderPending();
+        }
+
+        function clearPendingSelection() {
+            pendingSelectedIds.clear();
+            updatePendingSelectionUi();
+        }
+
+        function updatePendingSelectionUi() {
+            document.getElementById('pending-selected-count').textContent = pendingSelectedIds.size;
+            document.querySelectorAll('[data-bulk-action]').forEach(button => {
+                button.disabled = pendingSelectedIds.size === 0 || bulkRequestInFlight;
+            });
+
+            const selectAll = document.getElementById('pending-select-all');
+            if (!selectAll) return;
+            const selectedOnPage = pendingVisiblePageIds.filter(id => pendingSelectedIds.has(id)).length;
+            selectAll.checked = pendingVisiblePageIds.length > 0
+                && selectedOnPage === pendingVisiblePageIds.length;
+            selectAll.indeterminate = selectedOnPage > 0
+                && selectedOnPage < pendingVisiblePageIds.length;
+            selectAll.disabled = pendingVisiblePageIds.length === 0;
         }
 
         async function toggleDetail(alertId, transactionId) {
@@ -1003,6 +1151,14 @@
             return `${Number.isFinite(number) ? number.toFixed(2) : '0.00'}%`;
         }
 
+        function metricRangeDate(value, exclusiveEnd = false) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '-';
+            if (exclusiveEnd) date.setUTCDate(date.getUTCDate() - 1);
+            return date.toISOString().slice(0, 10);
+        }
+
         function renderDashboard(metrics) {
             const kpis = metrics.kpis || {};
             const statusCounts = metrics.statusCounts || {};
@@ -1012,6 +1168,8 @@
             const inv = statusCounts.INVESTIGATING || 0;
             const closed = statusCounts.CLOSED || 0;
             const dismissed = statusCounts.DISMISSED || 0;
+            document.getElementById('dashboard-window-summary').textContent =
+                `${metricRangeDate(metrics.from)} to ${metricRangeDate(metrics.to, true)} UTC (${metrics.days} days)`;
 
             document.getElementById('stat-total').textContent = kpis.totalAlerts || 0;
             document.getElementById('stat-total-meta').textContent =
@@ -1228,14 +1386,62 @@
 
         async function fetchJson(url) {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) throw new Error(await readApiError(response));
             return response.json();
         }
 
+        function setDefaultDashboardDateRange(force = false) {
+            const fromInput = document.getElementById('dashboard-from');
+            const toInput = document.getElementById('dashboard-to');
+            const today = new Date();
+            const start = new Date(today);
+            start.setUTCDate(start.getUTCDate() - 29);
+            const todayValue = today.toISOString().slice(0, 10);
+
+            fromInput.max = todayValue;
+            toInput.max = todayValue;
+            if (force || !fromInput.value) fromInput.value = start.toISOString().slice(0, 10);
+            if (force || !toInput.value) toInput.value = todayValue;
+        }
+
+        function toggleDashboardDateInputs() {
+            const custom = document.getElementById('dashboard-days').value === 'custom';
+            setDefaultDashboardDateRange();
+            ['dashboard-from-group', 'dashboard-to-group'].forEach(id => {
+                document.getElementById(id).classList.toggle('show', custom);
+            });
+            document.getElementById('dashboard-from').disabled = !custom;
+            document.getElementById('dashboard-to').disabled = !custom;
+        }
+
         async function loadDashboardMetrics() {
-            const days = Number(document.getElementById('dashboard-days').value || 30);
+            const windowValue = document.getElementById('dashboard-days').value || '30';
             const severity = document.getElementById('dashboard-severity').value;
-            const params = new URLSearchParams({ days: String(days) });
+            const params = new URLSearchParams();
+
+            if (windowValue === 'custom') {
+                const from = document.getElementById('dashboard-from').value;
+                const to = document.getElementById('dashboard-to').value;
+                if (!from || !to) {
+                    showToast('Select both start and end dates.', 'error');
+                    return;
+                }
+                if (from > to) {
+                    showToast('Start date must not be after end date.', 'error');
+                    return;
+                }
+                const rangeDays = Math.round(
+                    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000
+                ) + 1;
+                if (rangeDays > 366) {
+                    showToast('Custom dashboard range cannot exceed 366 days.', 'error');
+                    return;
+                }
+                params.set('from', from);
+                params.set('to', to);
+            } else {
+                params.set('days', windowValue);
+            }
             if (severity) {
                 params.set('severity', severity);
             }
@@ -1251,6 +1457,8 @@
         function resetDashboardFilters() {
             document.getElementById('dashboard-days').value = '30';
             document.getElementById('dashboard-severity').value = '';
+            setDefaultDashboardDateRange(true);
+            toggleDashboardDateInputs();
             loadDashboardMetrics();
         }
 
@@ -1265,8 +1473,13 @@
             const filtered = applyCommonFilters(pending, {
                 status: 'p-status', severity: 'p-severity', rule: 'p-rule', account: 'p-account', from: 'p-from', to: 'p-to', sort: 'p-sort'
             });
+            const filteredIds = new Set(filtered.map(alert => alert.id));
+            pendingSelectedIds.forEach(id => {
+                if (!filteredIds.has(id)) pendingSelectedIds.delete(id);
+            });
             const pageState = paginate(filtered, pendingPage);
             pendingPage = pageState.page;
+            pendingVisiblePageIds = pageState.items.map(alert => alert.id);
 
             const tbody = document.getElementById('pending-tbody');
             const table = document.getElementById('pending-table');
@@ -1274,10 +1487,11 @@
             const loading = document.getElementById('pending-loading');
 
             loading.classList.remove('show');
-            tbody.innerHTML = pageState.items.map(renderAlertRow).join('');
+            tbody.innerHTML = pageState.items.map(alert => renderAlertRow(alert, true)).join('');
             table.style.display = pageState.totalItems ? 'table' : 'none';
             empty.classList.toggle('show', !pageState.totalItems);
             renderPagination('pending-pagination', pageState, 'goPendingPage');
+            updatePendingSelectionUi();
         }
 
         function renderResolved() {
@@ -1309,6 +1523,7 @@
             document.getElementById('p-to').value = '';
             document.getElementById('p-sort').value = 'CREATED_DESC';
             pendingPage = 1;
+            clearPendingSelection();
             renderPending();
         }
 
@@ -1338,6 +1553,123 @@
             loadDashboardMetrics();
         }
 
+        function buildAlertFilterParams(pageName) {
+            const pendingPageSelected = pageName === 'pending';
+            const prefix = pendingPageSelected ? 'p' : 'r';
+            const params = new URLSearchParams({
+                format: 'csv',
+                statusGroup: pendingPageSelected ? 'ACTIVE' : 'RESOLVED'
+            });
+
+            const status = document.getElementById(`${prefix}-status`).value;
+            const severity = document.getElementById(`${prefix}-severity`).value;
+            const ruleId = document.getElementById(`${prefix}-rule`).value.trim();
+            const accountId = document.getElementById(`${prefix}-account`).value.trim();
+            const from = document.getElementById(`${prefix}-from`).value;
+            const to = document.getElementById(`${prefix}-to`).value;
+            const sort = document.getElementById(`${prefix}-sort`).value;
+            const sortConfig = {
+                CREATED_DESC: ['createdAt', 'desc'],
+                CREATED_ASC: ['createdAt', 'asc'],
+                SEVERITY_DESC: ['severity', 'desc'],
+                SEVERITY_ASC: ['severity', 'asc']
+            }[sort] || ['createdAt', 'desc'];
+
+            if (status) params.set('status', status);
+            if (severity) params.set('severity', severity);
+            if (ruleId) params.set('ruleId', ruleId);
+            if (accountId) params.set('accountId', accountId);
+            if (from) params.set('from', from);
+            if (to) params.set('to', to);
+            params.set('sortBy', sortConfig[0]);
+            params.set('sortDir', sortConfig[1]);
+            return params;
+        }
+
+        async function readApiError(response) {
+            const fallback = `HTTP ${response.status}`;
+            try {
+                const payload = await response.json();
+                return payload.error || payload.message || fallback;
+            } catch (_) {
+                return fallback;
+            }
+        }
+
+        async function exportAlerts(pageName) {
+            try {
+                const response = await fetch(`${API}/alerts/export?${buildAlertFilterParams(pageName)}`);
+                if (!response.ok) {
+                    throw new Error(await readApiError(response));
+                }
+
+                const blob = await response.blob();
+                const disposition = response.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^";]+)"?/i);
+                const filename = match ? match[1] : `alerts-${pageName}.csv`;
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                showToast('Filtered CSV export downloaded.', 'success');
+            } catch (e) {
+                showToast(`Export failed: ${e.message}`, 'error');
+            }
+        }
+
+        async function bulkChangeStatus(action) {
+            const ids = Array.from(pendingSelectedIds);
+            if (!ids.length || bulkRequestInFlight) return;
+
+            const notes = window.prompt(`Optional notes for ${action.toLowerCase()} (${ids.length} alerts):`, '');
+            if (notes === null) return;
+            if (notes.length > 1000) {
+                showToast('Notes must not exceed 1000 characters.', 'error');
+                return;
+            }
+
+            bulkRequestInFlight = true;
+            updatePendingSelectionUi();
+            try {
+                const response = await fetch(`${API}/alerts/bulk/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids, action, notes })
+                });
+                if (!response.ok) {
+                    throw new Error(await readApiError(response));
+                }
+
+                const result = await response.json();
+                (result.results || [])
+                    .filter(item => item.success)
+                    .forEach(item => pendingSelectedIds.delete(item.id));
+
+                if (result.failureCount) {
+                    const failures = (result.results || [])
+                        .filter(item => !item.success)
+                        .slice(0, 8)
+                        .map(item => `#${item.id}: ${item.error}`)
+                        .join('\n');
+                    window.alert(`${result.successCount} updated, ${result.failureCount} failed.\n\n${failures}`);
+                    showToast(`Batch finished with ${result.failureCount} failure(s).`, 'error');
+                } else {
+                    showToast(`${result.successCount} alert(s) updated.`, 'success');
+                }
+
+                await Promise.all([loadAllAlerts('pending'), loadDashboardMetrics()]);
+            } catch (e) {
+                showToast(`Batch update failed: ${e.message}`, 'error');
+            } finally {
+                bulkRequestInFlight = false;
+                updatePendingSelectionUi();
+            }
+        }
+
         async function changeStatus(id, action) {
             const notes = window.prompt(`Optional notes for ${action}:`, '') || '';
             try {
@@ -1348,14 +1680,7 @@
                 });
 
                 if (!res.ok) {
-                    let msg = `HTTP ${res.status}`;
-                    try {
-                        const err = await res.json();
-                        msg = err.error || err.message || msg;
-                    } catch (_) {
-                        // no-op
-                    }
-                    throw new Error(msg);
+                    throw new Error(await readApiError(res));
                 }
 
                 showToast(`Alert #${id} updated.`, 'success');
@@ -1426,6 +1751,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            setDefaultDashboardDateRange();
+            toggleDashboardDateInputs();
             loadDashboardMetrics();
         });
     </script>

@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +26,7 @@ public class AlertMetricsService {
 
     private static final List<Integer> SUPPORTED_TREND_WINDOWS = List.of(7, 30);
     private static final List<String> SEVERITIES = List.of("HIGH", "MEDIUM", "LOW");
+    private static final int MAX_CUSTOM_RANGE_DAYS = 366;
 
     private final AlertMetricsRepository metricsRepository;
     private final Clock clock;
@@ -90,6 +92,18 @@ public class AlertMetricsService {
 
     public AlertDashboardMetricsResponse getDashboardMetrics(int days, String severity) {
         ReportingWindow window = getReportingWindow(days);
+        return buildDashboardMetrics(window, severity);
+    }
+
+    public AlertDashboardMetricsResponse getDashboardMetrics(LocalDate from,
+                                                             LocalDate to,
+                                                             String severity) {
+        ReportingWindow window = getCustomReportingWindow(from, to);
+        return buildDashboardMetrics(window, severity);
+    }
+
+    private AlertDashboardMetricsResponse buildDashboardMetrics(ReportingWindow window,
+                                                                String severity) {
         String normalizedSeverity = normalizeSeverity(severity);
 
         Map<String, Long> statusCounts = fillStatusCounts(
@@ -199,7 +213,7 @@ public class AlertMetricsService {
                         .toList();
 
         return new AlertDashboardMetricsResponse(
-                days,
+                window.days(),
                 window.fromInstant(),
                 window.toInstant(),
                 normalizedSeverity,
@@ -270,7 +284,31 @@ public class AlertMetricsService {
         LocalDate startDate = endDate.minusDays(days - 1L);
         LocalDateTime from = startDate.atStartOfDay();
         LocalDateTime to = endDate.plusDays(1).atStartOfDay();
-        return new ReportingWindow(startDate, from, to);
+        return new ReportingWindow(days, startDate, from, to);
+    }
+
+    private ReportingWindow getCustomReportingWindow(LocalDate from, LocalDate to) {
+        if (from == null || to == null) {
+            throw new IllegalArgumentException("from and to are both required for a custom range");
+        }
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("from must not be after to");
+        }
+        if (to.isAfter(LocalDate.now(clock))) {
+            throw new IllegalArgumentException("to must not be after the current UTC date");
+        }
+
+        long days = ChronoUnit.DAYS.between(from, to) + 1L;
+        if (days > MAX_CUSTOM_RANGE_DAYS) {
+            throw new IllegalArgumentException(
+                    "custom dashboard range must not exceed " + MAX_CUSTOM_RANGE_DAYS + " days");
+        }
+        return new ReportingWindow(
+                (int) days,
+                from,
+                from.atStartOfDay(),
+                to.plusDays(1).atStartOfDay()
+        );
     }
 
     private Map<LocalDate, Long> zeroLongSeries(ReportingWindow window) {
@@ -308,6 +346,7 @@ public class AlertMetricsService {
     }
 
     private record ReportingWindow(
+            int days,
             LocalDate startDate,
             LocalDateTime from,
             LocalDateTime to) {

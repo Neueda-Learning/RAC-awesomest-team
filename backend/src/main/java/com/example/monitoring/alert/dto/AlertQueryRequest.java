@@ -10,6 +10,7 @@ public class AlertQueryRequest {
     private Integer page = 0;
     private Integer size = 20;
     private AlertStatus status;
+    private String statusGroup;
     private String severity;
     private String accountId;
     private Long ruleId;
@@ -46,6 +47,14 @@ public class AlertQueryRequest {
 
     public void setStatus(AlertStatus status) {
         this.status = status;
+    }
+
+    public String getStatusGroup() {
+        return statusGroup;
+    }
+
+    public void setStatusGroup(String statusGroup) {
+        this.statusGroup = statusGroup;
     }
 
     public String getSeverity() {
