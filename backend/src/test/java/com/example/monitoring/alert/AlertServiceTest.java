@@ -5,12 +5,14 @@ import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
 import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
+import com.example.monitoring.alert.dto.AlertTransactionItem;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.entity.AlertStatusHistory;
 import com.example.monitoring.alert.repository.AlertQueryRepository;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertStatusHistoryRepository;
+import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
 import com.example.monitoring.alert.service.AlertService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.List;
 import java.time.LocalDateTime;
@@ -46,6 +49,9 @@ public class AlertServiceTest {
 
 	@Mock
 	private AlertQueryRepository alertQueryRepository;
+
+	@Mock
+	private AlertTransactionLinkRepository alertTransactionLinkRepository;
 
 	@InjectMocks
 	private AlertService alertService;
@@ -293,5 +299,32 @@ public class AlertServiceTest {
 				() -> alertService.exportAlertsCsv(new AlertQueryRequest()));
 
 		assertTrue(exception.getMessage().contains("maximum of 5000"));
+	}
+
+	@Test
+	void getAlertTransactions_shouldReturnEveryLinkedTransaction() {
+		LocalDateTime triggeredAt = LocalDateTime.of(2026, 7, 30, 11, 0);
+		AlertTransactionItem item = new AlertTransactionItem(
+				20L, "ACC-009", "PAY-001", new BigDecimal("20000.00"), "USD",
+				"TRANSFER_OUT", "repeat trigger", triggeredAt, triggeredAt);
+		when(alertRepository.existsById(88L)).thenReturn(true);
+		when(alertTransactionLinkRepository.findByAlertId(88L)).thenReturn(List.of(item));
+
+		List<AlertTransactionItem> result = alertService.getAlertTransactions(88L);
+
+		assertEquals(1, result.size());
+		assertEquals(20L, result.get(0).transactionId());
+		verify(alertTransactionLinkRepository).findByAlertId(88L);
+	}
+
+	@Test
+	void getAlertTransactions_shouldRejectMissingAlert() {
+		when(alertRepository.existsById(999L)).thenReturn(false);
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> alertService.getAlertTransactions(999L));
+
+		assertEquals("Alert not found: 999", exception.getMessage());
+		verify(alertTransactionLinkRepository, never()).findByAlertId(999L);
 	}
 }

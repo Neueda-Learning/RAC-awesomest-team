@@ -178,6 +178,25 @@ EXECUTE add_alert_idx_stmt;
 DEALLOCATE PREPARE add_alert_idx_stmt;
 
 -- 告警状态历史表
+-- Every transaction represented by an alert, including deduplicated triggers.
+CREATE TABLE IF NOT EXISTS alert_transaction_link (
+    alert_id        BIGINT      NOT NULL,
+    transaction_id  BIGINT      NOT NULL,
+    triggered_at    TIMESTAMP   NOT NULL,
+    PRIMARY KEY (alert_id, transaction_id),
+    CONSTRAINT fk_alert_transaction_link_alert
+        FOREIGN KEY (alert_id) REFERENCES alert (id) ON DELETE CASCADE,
+    CONSTRAINT fk_alert_transaction_link_transaction
+        FOREIGN KEY (transaction_id) REFERENCES transaction (id),
+    INDEX idx_alert_transaction_triggered (alert_id, triggered_at)
+);
+
+-- The legacy model retained only the latest transaction. Backfill that known
+-- link; every future merge appends its transaction without overwriting history.
+INSERT IGNORE INTO alert_transaction_link (alert_id, transaction_id, triggered_at)
+SELECT id, transaction_id, COALESCE(last_triggered_at, created_at)
+FROM alert;
+
 CREATE TABLE IF NOT EXISTS alert_status_history (
     id              BIGINT        AUTO_INCREMENT PRIMARY KEY,
     alert_id        BIGINT        NOT NULL,

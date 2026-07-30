@@ -39,6 +39,12 @@ class AlertDashboardFrontendTest {
             assertTrue(html.contains("/alerts/bulk/status"));
             assertTrue(html.contains("function exportAlerts("));
             assertTrue(html.contains("/alerts/export?"));
+            assertTrue(html.contains("<th>Occurrences</th>"));
+            assertTrue(html.contains("<th>Last Triggered</th>"));
+            assertTrue(html.contains("id=\"alert-transactions-modal\""));
+            assertTrue(html.contains("function openAlertTransactions("));
+            assertTrue(html.contains("/transactions`"));
+            assertFalse(html.contains("function toggleDetail("));
 
             int renderStart = html.indexOf("function renderDashboard(");
             int nextFunction = html.indexOf("function renderPending(", renderStart);

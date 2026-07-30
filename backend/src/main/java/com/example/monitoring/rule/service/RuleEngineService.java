@@ -3,6 +3,7 @@ package com.example.monitoring.rule.service;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.service.AlertSlaPolicy;
 import com.example.monitoring.alert.repository.AlertRepository;
+import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
 import com.example.monitoring.rule.entity.MonitoringRule;
 import com.example.monitoring.rule.entity.RuleCondition;
 import com.example.monitoring.rule.repository.MonitoringRuleRepository;
@@ -11,6 +12,7 @@ import com.example.monitoring.transaction.entity.Transaction;
 import com.example.monitoring.transaction.entity.TransactionType;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,18 +28,22 @@ public class RuleEngineService {
     private final MonitoringRuleRepository ruleRepository;
     private final TransactionRepository transactionRepository;
     private final AlertRepository alertRepository;
+    private final AlertTransactionLinkRepository alertTransactionLinkRepository;
     private final RuleConditionRepository conditionRepository;
 
     public RuleEngineService(MonitoringRuleRepository ruleRepository,
                              TransactionRepository transactionRepository,
                              AlertRepository alertRepository,
+                             AlertTransactionLinkRepository alertTransactionLinkRepository,
                              RuleConditionRepository conditionRepository) {
         this.ruleRepository = ruleRepository;
         this.transactionRepository = transactionRepository;
         this.alertRepository = alertRepository;
+        this.alertTransactionLinkRepository = alertTransactionLinkRepository;
         this.conditionRepository = conditionRepository;
     }
 
+    @Transactional
     public void evaluate(Transaction transaction) {
         TransactionType transactionType = TransactionType.from(transaction.getTransactionType());
         if (transactionType.isAlertExempt()) {
@@ -66,6 +72,11 @@ public class RuleEngineService {
 
         alertRepository.findLatestActiveForDedup(rule.getId(), transaction.getAccountId(), since)
                 .ifPresentOrElse(existing -> {
+                    boolean newTrigger = alertTransactionLinkRepository.addLink(
+                            existing.getId(), transaction.getId(), triggeredAt);
+                    if (!newTrigger) {
+                        return;
+                    }
                     int currentCount = existing.getDedupCount() == null ? 1 : existing.getDedupCount();
                     existing.setDedupCount(currentCount + 1);
                     existing.setLastTriggeredAt(triggeredAt);
@@ -81,7 +92,9 @@ public class RuleEngineService {
                     alert.setAckDueAt(AlertSlaPolicy.calculateAckDueAt(rule.getSeverity(), triggeredAt));
                     alert.setResolveDueAt(AlertSlaPolicy.calculateResolveDueAt(rule.getSeverity(), triggeredAt));
                     alert.setSlaBreached(false);
-                    alertRepository.save(alert);
+                    Alert saved = alertRepository.save(alert);
+                    alertTransactionLinkRepository.addLink(
+                            saved.getId(), transaction.getId(), triggeredAt);
                 });
     }
 

@@ -396,7 +396,7 @@
         }
 
         .table-scroll { overflow-x: auto; }
-        #pending-table, #resolved-table { min-width: 1080px; }
+        #pending-table, #resolved-table { min-width: 1320px; }
 
         table { width: 100%; border-collapse: collapse; }
 
@@ -466,6 +466,18 @@
 
         .btn-mini:hover { background: #f4f6fa; }
 
+        .occurrence-badge {
+            display: inline-block;
+            min-width: 32px;
+            border-radius: 14px;
+            padding: 3px 8px;
+            background: #eef0ff;
+            color: #4f5db8;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
         .detail-row td {
             background: #f8f9ff;
             border-top: none;
@@ -526,6 +538,20 @@
             box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
             padding: 20px;
         }
+
+        .modal.modal-wide { width: min(1120px, 96vw); }
+
+        .transaction-modal-summary {
+            margin-bottom: 12px;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #f5f6ff;
+            color: #4f5870;
+            font-size: 13px;
+        }
+
+        #alert-transactions-table { min-width: 940px; }
+        .transaction-description { min-width: 180px; white-space: normal; }
 
         .modal h3 {
             font-size: 18px;
@@ -783,7 +809,7 @@
                     <div id="pending-loading" class="loading">Loading pending alerts...</div>
                     <div class="table-scroll">
                         <table id="pending-table" style="display: none;">
-                            <thead><tr><th class="checkbox-cell"><input id="pending-select-all" type="checkbox" aria-label="Select all alerts on this page" onchange="togglePendingSelectAll(this.checked)"></th><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                            <thead><tr><th class="checkbox-cell"><input id="pending-select-all" type="checkbox" aria-label="Select all alerts on this page" onchange="togglePendingSelectAll(this.checked)"></th><th>ID</th><th>Account</th><th>Rule</th><th>Latest Tx</th><th>Occurrences</th><th>Severity</th><th>Status</th><th>Created</th><th>Last Triggered</th><th>Updated</th><th>Actions</th></tr></thead>
                             <tbody id="pending-tbody"></tbody>
                         </table>
                     </div>
@@ -816,7 +842,7 @@
                     <div id="resolved-loading" class="loading">Loading resolved alerts...</div>
                     <div class="table-scroll">
                         <table id="resolved-table" style="display: none;">
-                            <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Transaction</th><th>Severity</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>ID</th><th>Account</th><th>Rule</th><th>Latest Tx</th><th>Occurrences</th><th>Severity</th><th>Status</th><th>Created</th><th>Last Triggered</th><th>Updated</th><th>Actions</th></tr></thead>
                             <tbody id="resolved-tbody"></tbody>
                         </table>
                     </div>
@@ -826,6 +852,15 @@
             </section>
         </div>
     </main>
+
+    <div id="alert-transactions-modal" class="modal-overlay">
+        <div class="modal modal-wide">
+            <h3 id="alert-transactions-title">Related Transactions</h3>
+            <div id="alert-transactions-summary" class="transaction-modal-summary"></div>
+            <div id="alert-transactions-content"></div>
+            <div style="margin-top: 12px; text-align: right;"><button type="button" class="btn btn-outline" onclick="closeAlertTransactions()">Close</button></div>
+        </div>
+    </div>
 
     <div id="history-modal" class="modal-overlay">
         <div class="modal">
@@ -845,7 +880,6 @@
         const resolvedStatuses = ['CLOSED', 'DISMISSED'];
         const PAGE_SIZE = 10;
         const MAX_BULK_SELECTION = 100;
-        const transactionCache = new Map();
         const pendingSelectedIds = new Set();
         let pendingVisiblePageIds = [];
         let bulkRequestInFlight = false;
@@ -943,21 +977,21 @@
             const selectionCell = selectable
                 ? `<td class="checkbox-cell" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select alert ${esc(alert.id)}" ${pendingSelectedIds.has(alert.id) ? 'checked' : ''} onchange="togglePendingSelection(${alert.id}, this.checked)"></td>`
                 : '';
-            const detailColspan = selectable ? 10 : 9;
-            return `<tr class="clickable-row" onclick="toggleDetail(${alert.id}, ${alert.transactionId})">
+            const occurrences = Math.max(1, Number(alert.dedupCount) || 1);
+            const lastTriggeredAt = alert.lastTriggeredAt || alert.createdAt || '-';
+            return `<tr class="clickable-row" title="View all related transactions" onclick="openAlertTransactions(${alert.id}, ${occurrences})">
                 ${selectionCell}
                 <td>#${esc(alert.id)}</td>
                 <td>${esc(alert.accountId)}</td>
                 <td>${esc(alert.ruleId)}</td>
                 <td>${esc(alert.transactionId)}</td>
+                <td><span class="occurrence-badge">×${occurrences}</span></td>
                 <td>${severityBadge(alert.severity)}</td>
                 <td>${statusBadge(alert.status)}</td>
                 <td class="timestamp">${esc(alert.createdAt || '-')}</td>
+                <td class="timestamp">${esc(lastTriggeredAt)}</td>
                 <td class="timestamp">${esc(alert.updatedAt || '-')}</td>
                 <td>${renderActionButtons(alert)}</td>
-            </tr>
-            <tr id="detail-${alert.id}" class="detail-row" style="display:none;">
-                <td colspan="${detailColspan}"><div id="detail-content-${alert.id}" class="detail-box">Loading transaction details...</div></td>
             </tr>`;
         }
 
@@ -1007,41 +1041,6 @@
             selectAll.indeterminate = selectedOnPage > 0
                 && selectedOnPage < pendingVisiblePageIds.length;
             selectAll.disabled = pendingVisiblePageIds.length === 0;
-        }
-
-        async function toggleDetail(alertId, transactionId) {
-            const detailRow = document.getElementById(`detail-${alertId}`);
-            const detailContent = document.getElementById(`detail-content-${alertId}`);
-            if (!detailRow || !detailContent) return;
-
-            if (detailRow.style.display === 'table-row') {
-                detailRow.style.display = 'none';
-                return;
-            }
-
-            detailRow.style.display = 'table-row';
-
-            try {
-                let tx = transactionCache.get(transactionId);
-                if (!tx) {
-                    const res = await fetch(`${API}/transactions/${transactionId}`);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    tx = await res.json();
-                    transactionCache.set(transactionId, tx);
-                }
-
-                detailContent.innerHTML = `
-                    <div class="detail-item"><span class="detail-label">Transaction ID:</span>${esc(tx.id)}</div>
-                    <div class="detail-item"><span class="detail-label">Account ID:</span>${esc(tx.accountId)}</div>
-                    <div class="detail-item"><span class="detail-label">Payee ID:</span>${esc(tx.payeeId)}</div>
-                    <div class="detail-item"><span class="detail-label">Amount:</span>${esc(tx.amount)} ${esc(tx.currency || '')}</div>
-                    <div class="detail-item"><span class="detail-label">Type:</span>${esc(tx.transactionType)}</div>
-                    <div class="detail-item"><span class="detail-label">Description:</span>${esc(tx.description || '-')}</div>
-                    <div class="detail-item"><span class="detail-label">Created At:</span>${esc(tx.createdAt || '-')}</div>
-                `;
-            } catch (e) {
-                detailContent.innerHTML = `<div class="detail-item" style="color:#d6334c;">Failed to load transaction details: ${esc(e.message)}</div>`;
-            }
         }
 
         function applyCommonFilters(alerts, ids) {
@@ -1688,6 +1687,65 @@
             } catch (e) {
                 showToast(`Update failed: ${e.message}`, 'error');
             }
+        }
+
+        async function openAlertTransactions(id, expectedCount) {
+            const modal = document.getElementById('alert-transactions-modal');
+            const title = document.getElementById('alert-transactions-title');
+            const summary = document.getElementById('alert-transactions-summary');
+            const content = document.getElementById('alert-transactions-content');
+
+            modal.classList.add('open');
+            title.textContent = `Alert #${id} Related Transactions`;
+            summary.textContent = 'Loading linked transactions...';
+            content.innerHTML = '<div class="loading show">Loading transactions...</div>';
+
+            try {
+                const response = await fetch(`${API}/alerts/${id}/transactions`);
+                if (!response.ok) {
+                    throw new Error(await readApiError(response));
+                }
+                const transactions = await response.json();
+                const missingLegacyLinks = Math.max(0, Number(expectedCount || 0) - transactions.length);
+                summary.textContent = missingLegacyLinks
+                    ? `${transactions.length} linked transaction(s) available. ${missingLegacyLinks} older legacy merge(s) cannot be reconstructed.`
+                    : `${transactions.length} linked transaction(s), newest trigger first.`;
+
+                if (!transactions.length) {
+                    content.innerHTML = '<div class="empty show">No related transactions found.</div>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <div class="table-scroll">
+                        <table id="alert-transactions-table">
+                            <thead>
+                                <tr><th>Transaction</th><th>Account</th><th>Payee</th><th>Amount</th><th>Type</th><th>Transaction Time</th><th>Alert Triggered</th><th>Description</th></tr>
+                            </thead>
+                            <tbody>
+                                ${transactions.map(transaction => `
+                                    <tr>
+                                        <td>#${esc(transaction.transactionId)}</td>
+                                        <td>${esc(transaction.accountId)}</td>
+                                        <td>${esc(transaction.payeeId || '-')}</td>
+                                        <td>${esc(transaction.amount)} ${esc(transaction.currency || '')}</td>
+                                        <td>${esc(transaction.transactionType)}</td>
+                                        <td class="timestamp">${esc(transaction.transactionCreatedAt || '-')}</td>
+                                        <td class="timestamp">${esc(transaction.alertTriggeredAt || '-')}</td>
+                                        <td class="transaction-description">${esc(transaction.description || '-')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>`;
+            } catch (error) {
+                summary.textContent = 'Unable to load related transactions.';
+                content.innerHTML = `<div class="empty show" style="color:#d6334c;">${esc(error.message)}</div>`;
+            }
+        }
+
+        function closeAlertTransactions() {
+            document.getElementById('alert-transactions-modal').classList.remove('open');
         }
 
         async function openHistory(id) {

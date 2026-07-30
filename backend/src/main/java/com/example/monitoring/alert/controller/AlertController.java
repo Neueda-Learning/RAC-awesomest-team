@@ -6,6 +6,7 @@ import com.example.monitoring.alert.dto.AlertMetricsSummaryResponse;
 import com.example.monitoring.alert.dto.AlertQueryRequest;
 import com.example.monitoring.alert.dto.AlertQueryResponse;
 import com.example.monitoring.alert.dto.AlertTrendResponse;
+import com.example.monitoring.alert.dto.AlertTransactionItem;
 import com.example.monitoring.alert.dto.BulkAlertStatusRequest;
 import com.example.monitoring.alert.dto.BulkAlertStatusResponse;
 import com.example.monitoring.alert.dto.UpdateAlertStatusRequest;
@@ -151,6 +152,12 @@ public class AlertController {
     @GetMapping("/{id}/history")
     public ResponseEntity<List<AlertStatusHistory>> getAlertHistory(@PathVariable Long id) {
         return ResponseEntity.ok(alertService.getAlertHistory(id));
+    }
+
+    // GET /alerts/{id}/transactions — all transactions represented by this deduplicated alert.
+    @GetMapping("/{id}/transactions")
+    public ResponseEntity<List<AlertTransactionItem>> getAlertTransactions(@PathVariable Long id) {
+        return ResponseEntity.ok(alertService.getAlertTransactions(id));
     }
 
     // PATCH /alerts/{id}/acknowledge — 确认告警 (OPEN → ACKNOWLEDGED)

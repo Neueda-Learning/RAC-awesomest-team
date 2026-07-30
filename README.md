@@ -125,6 +125,7 @@ After backend startup, you can open:
 - `GET /alerts/export?statusGroup=ACTIVE&format=csv` - filtered CSV export (max 5,000 rows)
 - `GET /alerts/{id}`
 - `GET /alerts/{id}/history`
+- `GET /alerts/{id}/transactions` - all transactions represented by a deduplicated alert
 - `GET /alerts/metrics/average-resolution?from=...&to=...&severity=HIGH`
 - `GET /alerts/metrics/trend?days=7&severity=HIGH`
 - `GET /alerts/metrics/summary?from=...&to=...&severity=HIGH`

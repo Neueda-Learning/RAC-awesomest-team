@@ -3,6 +3,7 @@ package com.example.monitoring.rule;
 import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.repository.AlertRepository;
+import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
 import com.example.monitoring.rule.entity.MonitoringRule;
 import com.example.monitoring.rule.repository.MonitoringRuleRepository;
 import com.example.monitoring.rule.repository.RuleConditionRepository;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +44,9 @@ public class RuleEngineServiceTest {
     private AlertRepository alertRepository;
 
     @Mock
+    private AlertTransactionLinkRepository alertTransactionLinkRepository;
+
+    @Mock
     private RuleConditionRepository conditionRepository;
 
     @InjectMocks
@@ -55,7 +60,11 @@ public class RuleEngineServiceTest {
         when(ruleRepository.findByIsActive(true)).thenReturn(List.of(rule));
         when(alertRepository.findLatestActiveForDedup(eq(1L), eq("ACC-001"), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
-        when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> {
+            Alert alert = invocation.getArgument(0);
+            alert.setId(101L);
+            return alert;
+        });
 
         ruleEngineService.evaluate(tx);
 
@@ -69,6 +78,8 @@ public class RuleEngineServiceTest {
         assertEquals(LocalDateTime.of(2026, 7, 30, 10, 5), saved.getAckDueAt());
         assertEquals(LocalDateTime.of(2026, 7, 30, 10, 30), saved.getResolveDueAt());
         assertFalse(Boolean.TRUE.equals(saved.getSlaBreached()));
+        verify(alertTransactionLinkRepository).addLink(
+                101L, 10L, LocalDateTime.of(2026, 7, 30, 10, 0));
     }
 
     @Test
@@ -85,6 +96,8 @@ public class RuleEngineServiceTest {
         when(ruleRepository.findByIsActive(true)).thenReturn(List.of(rule));
         when(alertRepository.findLatestActiveForDedup(eq(2L), eq("ACC-009"), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(existing));
+        when(alertTransactionLinkRepository.addLink(
+                88L, 20L, LocalDateTime.of(2026, 7, 30, 11, 0))).thenReturn(true);
         when(alertRepository.save(any(Alert.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ruleEngineService.evaluate(tx);
@@ -93,6 +106,31 @@ public class RuleEngineServiceTest {
         assertEquals(3, existing.getDedupCount());
         assertEquals(20L, existing.getTransactionId());
         assertEquals(LocalDateTime.of(2026, 7, 30, 11, 0), existing.getLastTriggeredAt());
+        verify(alertTransactionLinkRepository).addLink(
+                88L, 20L, LocalDateTime.of(2026, 7, 30, 11, 0));
+    }
+
+    @Test
+    void evaluate_shouldNotDoubleCountWhenSameTransactionIsRetried() {
+        MonitoringRule rule = buildAmountRule(2L, "MEDIUM", new BigDecimal("10000"));
+        Transaction tx = buildTransaction(
+                20L, "ACC-009", new BigDecimal("20000"),
+                LocalDateTime.of(2026, 7, 30, 11, 0));
+        Alert existing = new Alert(2L, 20L, "ACC-009", "MEDIUM");
+        existing.setId(88L);
+        existing.setStatus(AlertStatus.OPEN);
+        existing.setDedupCount(2);
+
+        when(ruleRepository.findByIsActive(true)).thenReturn(List.of(rule));
+        when(alertRepository.findLatestActiveForDedup(eq(2L), eq("ACC-009"), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(existing));
+        when(alertTransactionLinkRepository.addLink(
+                88L, 20L, LocalDateTime.of(2026, 7, 30, 11, 0))).thenReturn(false);
+
+        ruleEngineService.evaluate(tx);
+
+        assertEquals(2, existing.getDedupCount());
+        verify(alertRepository, never()).save(existing);
     }
 
     private MonitoringRule buildAmountRule(Long id, String severity, BigDecimal threshold) {
