@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transaction Monitoring System — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── 16:9 slide container ──────────────────────── */
+  html, body { width: 100%; height: 100%; background: #1a1a2e; }
+
+  .slide {
+    width: 1280px;
+    height: 720px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #0f1a30 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 40px 22px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #fff;
+  }
+
+  /* subtle grid bg */
+  .slide::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── Header ──────────────────────────────────────── */
+  .hd {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px; flex-shrink: 0;
+  }
+  .hd-left { display: flex; align-items: center; gap: 12px; }
+  .hd-logo {
+    font-size: 28px; width: 48px; height: 48px;
+    background: linear-gradient(135deg,#4f46e5,#7c3aed);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .hd-title { font-size: 38px; font-weight: 800; letter-spacing: 0.5px;
+    background: linear-gradient(90deg,#a78bfa,#60a5fa,#34d399);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hd-sub { font-size: 17px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .hd-team { font-size: 17px; color: rgba(255,255,255,0.35); text-align: right; line-height: 1.6; }
+
+  /* ── Main grid: 5 vertical layers linked by arrows ── */
+  .arch {
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  /* each column = one layer */
+  .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  /* arrow between columns */
+  .arrow-col {
+    flex: 0 0 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    color: rgba(255,255,255,0.45);
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .arrow-col svg { opacity: 0.4; }
+
+  /* layer label above each column */
+  .col-label {
+    font-size: 15px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+    margin-bottom: 12px; text-align: center;
+  }
+
+  /* cards inside a column */
+  .col-cards {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .card {
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: transform 0.2s;
+  }
+  .card:hover { transform: scale(1.03); }
+  .card .ci { font-size: 38px; line-height: 1; }
+  .card .ct { font-size: 17px; font-weight: 700; line-height: 1.4; }
+  .card .cs { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-top: 4px; }
+
+  /* colours */
+  .c-purple { background: linear-gradient(145deg,#4f46e5,#7c3aed); }
+  .c-blue   { background: linear-gradient(145deg,#0284c7,#0ea5e9); }
+  .c-teal   { background: linear-gradient(145deg,#0891b2,#0369a1); }
+  .c-green  { background: linear-gradient(145deg,#059669,#0d9488); }
+  .c-orange { background: linear-gradient(145deg,#d97706,#ea580c);
+              border: 1.5px solid rgba(251,191,36,0.5) !important; }
+  .c-slate  { background: linear-gradient(145deg,#475569,#334155); }
+  .c-pink   { background: linear-gradient(145deg,#be185d,#9d174d); }
+  .c-emerald{ background: linear-gradient(145deg,#15803d,#166534); }
+
+  /* wide DB card */
+  .db-tables { display: flex; gap: 6px; flex-wrap: wrap;
+               justify-content: center; margin-top: 6px; }
+  .db-badge {
+    background: rgba(255,255,255,0.15); border-radius: 4px;
+    padding: 5px 12px; font-size: 13px; font-weight: 600;
+  }
+
+  /* ── Footer strip ────────────────────────────────── */
+  .footer {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; flex-shrink: 0; margin-top: 14px; flex-wrap: wrap;
+  }
+  .tech {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 6px 18px;
+    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.8);
+  }
+
+  /* print / screenshot helper */
+  @media print {
+    html, body { background: #fff; }
+    .slide { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+
+  <!-- Header -->
+  <div class="hd">
+    <div class="hd-left">
+      <div class="hd-logo">🏦</div>
+      <div>
+        <div class="hd-title">Transaction Monitoring System</div>
+        <div class="hd-sub">Overall Architecture Overview</div>
+      </div>
+    </div>
+    <div class="hd-team">RAC Awesomest Team<br/>2026</div>
+  </div>
+
+  <!-- Architecture columns -->
+  <div class="arch">
+
+    <!-- ① Users -->
+    <div class="col">
+      <div class="col-label">Users</div>
+      <div class="col-cards">
+        <div class="card c-purple" style="flex:1;">
+          <div class="ci">👨‍💼</div>
+          <div class="ct">Operations<br/>/ Analysts</div>
+          <div class="cs">Monitor · Manage<br/>Investigate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-col">
+      <svg width="32" height="20" viewBox="0 0 32 20">
+        <line x1="2" y1="10" x2="26" y2="10" stroke="white" stroke-width="1.5"/>
+        <polyline points="20,4 28,10 20,16" fill="none" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <span>REST</span>
+    </div>
+
+    <!-- ② Frontend -->
+    <div class="col">
+      <div class="col-label">Frontend</div>
+      <div class="col-cards">
+        <div class="card c-blue">
+          <div class="ci">📊</div>
+          <div class="ct">Transactions</div>
+        </div>
+        <div class="card c-blue">
+          <div class="ci">⚙️</div>
+          <div class="ct">Rule Engine</div>
+        </div>
+        <div class="card c-blue">
+          <div class="ci">🚨</div>
+          <div class="ct">Alerts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-col">
+      <svg width="32" height="20" viewBox="0 0 32 20">
+        <line x1="2" y1="10" x2="26" y2="10" stroke="white" stroke-width="1.5"/>
+        <polyline points="20,4 28,10 20,16" fill="none" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <span>HTTP</span>
+    </div>
+
+    <!-- ③ API + Services -->
+    <div class="col" style="flex:1.5;">
+      <div class="col-label">Backend — Controllers &amp; Services</div>
+      <div class="col-cards">
+        <div class="card c-teal">
+          <div class="ci">🔁</div>
+          <div class="ct">Transaction<br/>Controller &amp; Service</div>
+        </div>
+        <!-- Rule Engine highlighted -->
+        <div class="card c-orange">
+          <div class="ci">🔥</div>
+          <div class="ct">Rule Engine</div>
+          <div class="cs">AMOUNT · VELOCITY<br/>NEW_PAYEE · DAILY_LIMIT</div>
+        </div>
+        <div class="card c-green">
+          <div class="ci">⚡</div>
+          <div class="ct">Alert Controller<br/>&amp; Service</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-col">
+      <svg width="32" height="20" viewBox="0 0 32 20">
+        <line x1="2" y1="10" x2="26" y2="10" stroke="white" stroke-width="1.5"/>
+        <polyline points="20,4 28,10 20,16" fill="none" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <span>JDBC</span>
+    </div>
+
+    <!-- ④ Data Access -->
+    <div class="col">
+      <div class="col-label">Data Access</div>
+      <div class="col-cards">
+        <div class="card c-slate">
+          <div class="ci">📦</div>
+          <div class="ct">TransactionRepository</div>
+        </div>
+        <div class="card c-slate">
+          <div class="ci">📦</div>
+          <div class="ct">Rule Repositories</div>
+        </div>
+        <div class="card c-slate">
+          <div class="ci">📦</div>
+          <div class="ct">Alert Repositories</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-col">
+      <svg width="32" height="20" viewBox="0 0 32 20">
+        <line x1="2" y1="10" x2="26" y2="10" stroke="white" stroke-width="1.5"/>
+        <polyline points="20,4 28,10 20,16" fill="none" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <span>SQL</span>
+    </div>
+
+    <!-- ⑤ DB + External -->
+    <div class="col">
+      <div class="col-label">Persistence &amp; External</div>
+      <div class="col-cards">
+        <div class="card c-pink" style="flex:2;">
+          <div class="ci">🗄️</div>
+          <div class="ct">MySQL</div>
+          <div class="db-tables">
+            <span class="db-badge">transaction</span>
+            <span class="db-badge">monitoring_rule</span>
+            <span class="db-badge">rule_condition</span>
+            <span class="db-badge">alert</span>
+            <span class="db-badge">alert_status_history</span>
+          </div>
+        </div>
+        <div class="card c-emerald" style="flex:1;">
+          <div class="ci">🌐</div>
+          <div class="ct">FX Rates API</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /arch -->
+
+  <!-- Tech stack footer -->
+  <div class="footer">
+    <span class="tech">☕ Java 17</span>
+    <span class="tech">🌱 Spring Boot 3.3</span>
+    <span class="tech">🔗 Spring Data JDBC</span>
+    <span class="tech">🗄️ MySQL 8</span>
+    <span class="tech">🔨 Maven</span>
+    <span class="tech">🧪 JUnit 5 + Mockito</span>
+  </div>
+
+</div>
+</body>
+</html>
