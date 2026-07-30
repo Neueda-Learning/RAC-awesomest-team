@@ -4,6 +4,7 @@ import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.entity.AlertStatus;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
+import com.example.monitoring.alert.notification.HighSeverityAlertCreatedEvent;
 import com.example.monitoring.rule.entity.MonitoringRule;
 import com.example.monitoring.rule.repository.MonitoringRuleRepository;
 import com.example.monitoring.rule.repository.RuleConditionRepository;
@@ -16,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -49,6 +51,9 @@ public class RuleEngineServiceTest {
     @Mock
     private RuleConditionRepository conditionRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private RuleEngineService ruleEngineService;
 
@@ -80,14 +85,15 @@ public class RuleEngineServiceTest {
         assertFalse(Boolean.TRUE.equals(saved.getSlaBreached()));
         verify(alertTransactionLinkRepository).addLink(
                 101L, 10L, LocalDateTime.of(2026, 7, 30, 10, 0));
+        verify(eventPublisher).publishEvent(new HighSeverityAlertCreatedEvent(101L));
     }
 
     @Test
     void evaluate_shouldMergeIntoExistingAlert_whenDedupCandidateExists() {
-        MonitoringRule rule = buildAmountRule(2L, "MEDIUM", new BigDecimal("10000"));
+        MonitoringRule rule = buildAmountRule(2L, "HIGH", new BigDecimal("10000"));
         Transaction tx = buildTransaction(20L, "ACC-009", new BigDecimal("20000"), LocalDateTime.of(2026, 7, 30, 11, 0));
 
-        Alert existing = new Alert(2L, 19L, "ACC-009", "MEDIUM");
+        Alert existing = new Alert(2L, 19L, "ACC-009", "HIGH");
         existing.setId(88L);
         existing.setStatus(AlertStatus.OPEN);
         existing.setDedupCount(2);
@@ -108,6 +114,7 @@ public class RuleEngineServiceTest {
         assertEquals(LocalDateTime.of(2026, 7, 30, 11, 0), existing.getLastTriggeredAt());
         verify(alertTransactionLinkRepository).addLink(
                 88L, 20L, LocalDateTime.of(2026, 7, 30, 11, 0));
+        verify(eventPublisher, never()).publishEvent(any(HighSeverityAlertCreatedEvent.class));
     }
 
     @Test

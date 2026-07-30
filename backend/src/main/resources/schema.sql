@@ -197,6 +197,67 @@ INSERT IGNORE INTO alert_transaction_link (alert_id, transaction_id, triggered_a
 SELECT id, transaction_id, COALESCE(last_triggered_at, created_at)
 FROM alert;
 
+-- Runtime-editable non-secret email settings. SMTP_PASSWORD stays in the
+-- backend process environment and is never stored here.
+CREATE TABLE IF NOT EXISTS alert_email_settings (
+    id                  BIGINT        AUTO_INCREMENT PRIMARY KEY,
+    singleton_key       TINYINT       NOT NULL DEFAULT 1,
+    enabled             BOOLEAN       NOT NULL DEFAULT FALSE,
+    from_address        VARCHAR(320)  NOT NULL,
+    to_address          VARCHAR(320)  NOT NULL,
+    smtp_host           VARCHAR(255)  NOT NULL,
+    smtp_port           INT           NOT NULL,
+    smtp_username       VARCHAR(320)  NOT NULL DEFAULT '',
+    smtp_auth           BOOLEAN       NOT NULL DEFAULT TRUE,
+    starttls_enabled    BOOLEAN       NOT NULL DEFAULT TRUE,
+    starttls_required   BOOLEAN       NOT NULL DEFAULT TRUE,
+    max_attempts        INT           NOT NULL DEFAULT 3,
+    retry_delay_ms      BIGINT        NOT NULL DEFAULT 60000,
+    created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uk_email_settings_singleton UNIQUE (singleton_key)
+);
+
+SET @email_settings_singleton_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert_email_settings'
+      AND COLUMN_NAME = 'singleton_key');
+SET @email_settings_alter_sql = IF(
+    @email_settings_singleton_col_exists = 0,
+    'ALTER TABLE alert_email_settings ADD COLUMN singleton_key TINYINT NOT NULL DEFAULT 1 AFTER id',
+    'SELECT 1');
+PREPARE add_email_settings_singleton_col_stmt FROM @email_settings_alter_sql;
+EXECUTE add_email_settings_singleton_col_stmt;
+DEALLOCATE PREPARE add_email_settings_singleton_col_stmt;
+
+SET @email_settings_singleton_idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert_email_settings'
+      AND INDEX_NAME = 'uk_email_settings_singleton');
+SET @email_settings_index_sql = IF(
+    @email_settings_singleton_idx_exists = 0,
+    'CREATE UNIQUE INDEX uk_email_settings_singleton ON alert_email_settings (singleton_key)',
+    'SELECT 1');
+PREPARE add_email_settings_singleton_idx_stmt FROM @email_settings_index_sql;
+EXECUTE add_email_settings_singleton_idx_stmt;
+DEALLOCATE PREPARE add_email_settings_singleton_idx_stmt;
+
+-- Delivery audit and retry state for HIGH-severity alert emails.
+CREATE TABLE IF NOT EXISTS alert_email_notification (
+    id              BIGINT        AUTO_INCREMENT PRIMARY KEY,
+    alert_id        BIGINT        NOT NULL,
+    recipient       VARCHAR(320)  NOT NULL,
+    status          VARCHAR(20)   NOT NULL,
+    attempt_count   INT           NOT NULL DEFAULT 0,
+    last_attempt_at TIMESTAMP     NULL,
+    sent_at         TIMESTAMP     NULL,
+    error_message   TEXT          NULL,
+    created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_email_notification_alert
+        FOREIGN KEY (alert_id) REFERENCES alert (id) ON DELETE CASCADE,
+    CONSTRAINT uk_email_notification_alert UNIQUE (alert_id),
+    INDEX idx_email_notification_retry (status, attempt_count, updated_at)
+);
+
 CREATE TABLE IF NOT EXISTS alert_status_history (
     id              BIGINT        AUTO_INCREMENT PRIMARY KEY,
     alert_id        BIGINT        NOT NULL,

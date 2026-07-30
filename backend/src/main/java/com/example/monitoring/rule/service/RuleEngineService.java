@@ -4,6 +4,7 @@ import com.example.monitoring.alert.entity.Alert;
 import com.example.monitoring.alert.service.AlertSlaPolicy;
 import com.example.monitoring.alert.repository.AlertRepository;
 import com.example.monitoring.alert.repository.AlertTransactionLinkRepository;
+import com.example.monitoring.alert.notification.HighSeverityAlertCreatedEvent;
 import com.example.monitoring.rule.entity.MonitoringRule;
 import com.example.monitoring.rule.entity.RuleCondition;
 import com.example.monitoring.rule.repository.MonitoringRuleRepository;
@@ -13,6 +14,7 @@ import com.example.monitoring.transaction.entity.TransactionType;
 import com.example.monitoring.transaction.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,17 +32,20 @@ public class RuleEngineService {
     private final AlertRepository alertRepository;
     private final AlertTransactionLinkRepository alertTransactionLinkRepository;
     private final RuleConditionRepository conditionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public RuleEngineService(MonitoringRuleRepository ruleRepository,
                              TransactionRepository transactionRepository,
                              AlertRepository alertRepository,
                              AlertTransactionLinkRepository alertTransactionLinkRepository,
-                             RuleConditionRepository conditionRepository) {
+                             RuleConditionRepository conditionRepository,
+                             ApplicationEventPublisher eventPublisher) {
         this.ruleRepository = ruleRepository;
         this.transactionRepository = transactionRepository;
         this.alertRepository = alertRepository;
         this.alertTransactionLinkRepository = alertTransactionLinkRepository;
         this.conditionRepository = conditionRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -95,6 +100,10 @@ public class RuleEngineService {
                     Alert saved = alertRepository.save(alert);
                     alertTransactionLinkRepository.addLink(
                             saved.getId(), transaction.getId(), triggeredAt);
+                    if ("HIGH".equalsIgnoreCase(saved.getSeverity())) {
+                        eventPublisher.publishEvent(
+                                new HighSeverityAlertCreatedEvent(saved.getId()));
+                    }
                 });
     }
 

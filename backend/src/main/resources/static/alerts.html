@@ -573,6 +573,149 @@
         .history-top { color: #444; margin-bottom: 4px; }
         .history-notes { color: #666; }
 
+        .email-settings-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .settings-card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            padding: 20px;
+        }
+
+        .settings-card h3 {
+            color: #1a1a2e;
+            font-size: 17px;
+            margin-bottom: 4px;
+        }
+
+        .settings-description {
+            color: #747b86;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+
+        .email-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .email-form-grid .full-width { grid-column: 1 / -1; }
+
+        .settings-toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin: 16px 0;
+        }
+
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 42px;
+            border: 1px solid #e2e6ec;
+            border-radius: 8px;
+            padding: 9px 11px;
+            color: #414854;
+            font-size: 12px;
+            font-weight: 600;
+            background: #fafbfc;
+        }
+
+        .settings-toggle input {
+            width: 16px;
+            height: 16px;
+            padding: 0;
+            accent-color: #667eea;
+            box-shadow: none;
+        }
+
+        .field-hint {
+            color: #858c97;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .password-state {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid #e1e5ea;
+            border-radius: 8px;
+            padding: 11px 12px;
+            background: #f8f9fb;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+
+        .password-pill {
+            border-radius: 14px;
+            padding: 3px 9px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .password-pill.ready { background: #eaf9ef; color: #1e7e34; }
+        .password-pill.missing { background: #ffeaea; color: #c72f48; }
+
+        .settings-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        .settings-save-state {
+            color: #7d8490;
+            font-size: 11px;
+            margin-left: auto;
+        }
+
+        .settings-callout {
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            background: #f5f6ff;
+            padding: 12px 14px;
+            color: #454d65;
+            font-size: 12px;
+            margin-bottom: 14px;
+        }
+
+        .settings-callout.warning {
+            border-left-color: #fd7e14;
+            background: #fff8ef;
+            color: #684719;
+        }
+
+        .settings-help-list {
+            padding-left: 18px;
+            color: #505866;
+            font-size: 12px;
+        }
+
+        .settings-help-list li { margin-bottom: 9px; }
+        .settings-help-list a { color: #5b67c8; }
+
+        .env-command {
+            margin: 10px 0 14px;
+            border-radius: 8px;
+            padding: 11px 12px;
+            background: #1a1a2e;
+            color: #eef1ff;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
         .toast {
             position: fixed;
             right: 20px;
@@ -604,6 +747,7 @@
             .main { margin-left: 64px; }
             .charts-grid { grid-template-columns: 1fr; }
             .performance-grid { grid-template-columns: 1fr; }
+            .email-settings-layout { grid-template-columns: 1fr; }
             .dashboard-section-heading { align-items: start; flex-direction: column; gap: 2px; }
             .dashboard-section-subtitle { text-align: left; }
             .content-area { padding: 14px; }
@@ -613,6 +757,9 @@
 
         @media (max-width: 720px) {
             .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .email-form-grid, .settings-toggle-grid { grid-template-columns: 1fr; }
+            .email-form-grid .full-width { grid-column: auto; }
+            .settings-save-state { width: 100%; margin-left: 0; }
         }
 
         @media (max-width: 520px) {
@@ -640,6 +787,9 @@
             </button>
             <button class="nav-item" type="button" data-page="resolved" onclick="switchPage('resolved', this)">
                 <span>✅</span><span>Resolved Alerts</span>
+            </button>
+            <button class="nav-item" type="button" data-page="email-settings" onclick="switchPage('email-settings', this)">
+                <span>✉️</span><span>Email Settings</span>
             </button>
 
             <div class="nav-section-title" style="margin-top: 18px;">Quick Links</div>
@@ -850,6 +1000,123 @@
                     <div id="resolved-empty" class="empty">No resolved alerts found.</div>
                 </div>
             </section>
+
+            <section id="page-email-settings" class="page">
+                <div class="email-settings-layout">
+                    <div class="settings-card">
+                        <h3>HIGH Alert Email Settings</h3>
+                        <div class="settings-description">
+                            These non-secret settings are stored in the database and take effect
+                            without restarting the backend.
+                        </div>
+
+                        <div class="password-state">
+                            <div>
+                                <strong>SMTP password</strong>
+                                <div class="field-hint">Read only: supplied to the backend as the SMTP_PASSWORD environment variable.</div>
+                            </div>
+                            <span id="email-password-state" class="password-pill missing">Checking...</span>
+                        </div>
+
+                        <form id="email-settings-form" onsubmit="saveEmailSettings(event)">
+                            <label class="settings-toggle">
+                                <input id="email-enabled" type="checkbox">
+                                Send one email when a new HIGH alert is created
+                            </label>
+
+                            <div class="email-form-grid" style="margin-top: 14px;">
+                                <div class="form-group">
+                                    <label for="email-from">Sender Address</label>
+                                    <input id="email-from" type="email" maxlength="320" required placeholder="your-account@example.com">
+                                    <div class="field-hint">Usually the authenticated mailbox or a provider-verified alias.</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="email-to">Recipient Address</label>
+                                    <input id="email-to" type="email" maxlength="320" required placeholder="your-private-email@example.com">
+                                    <div class="field-hint">May be the same private mailbox as the sender.</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="email-smtp-host">SMTP Host</label>
+                                    <input id="email-smtp-host" type="text" maxlength="255" required placeholder="smtp.example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="email-smtp-port">SMTP Port</label>
+                                    <input id="email-smtp-port" type="number" min="1" max="65535" required value="587">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="email-smtp-username">SMTP Username</label>
+                                    <input id="email-smtp-username" type="text" maxlength="320" placeholder="Usually your full email address">
+                                </div>
+                                <div class="form-group">
+                                    <label for="email-max-attempts">Maximum Attempts</label>
+                                    <input id="email-max-attempts" type="number" min="1" max="10" required value="3">
+                                </div>
+                                <div class="form-group">
+                                    <label for="email-retry-delay">Retry Delay (seconds)</label>
+                                    <input id="email-retry-delay" type="number" min="5" max="86400" required value="60">
+                                </div>
+                            </div>
+
+                            <div class="settings-toggle-grid">
+                                <label class="settings-toggle">
+                                    <input id="email-smtp-auth" type="checkbox" checked onchange="updateEmailPasswordState()">
+                                    SMTP authentication
+                                </label>
+                                <label class="settings-toggle">
+                                    <input id="email-starttls-enabled" type="checkbox" checked onchange="syncRequiredTls()">
+                                    Enable STARTTLS
+                                </label>
+                                <label class="settings-toggle">
+                                    <input id="email-starttls-required" type="checkbox" checked onchange="syncRequiredTls()">
+                                    Require STARTTLS
+                                </label>
+                            </div>
+
+                            <div class="settings-actions">
+                                <button id="email-save-button" type="submit" class="btn btn-primary">Save Settings</button>
+                                <button id="email-test-button" type="button" class="btn btn-outline" onclick="sendTestEmail()">Send Test Email</button>
+                                <button type="button" class="btn btn-outline" onclick="loadEmailSettings()">Reload</button>
+                                <span id="email-settings-source" class="settings-save-state"></span>
+                            </div>
+                        </form>
+                    </div>
+
+                    <aside class="settings-card">
+                        <h3>Private Mailbox & Password Guide</h3>
+                        <div class="settings-description">The browser never receives or stores the SMTP password.</div>
+
+                        <div class="settings-callout">
+                            Personal addresses such as Gmail, Outlook.com, iCloud, or another
+                            provider can be used if that provider allows SMTP access. This
+                            application does not restrict the email domain.
+                        </div>
+
+                        <ul class="settings-help-list">
+                            <li>The provider may require the sender to equal the authenticated mailbox or a verified alias/domain.</li>
+                            <li>The recipient can normally use any valid domain. Provider anti-spam, organization, and sending-limit policies still apply.</li>
+                            <li>Do not use your normal mailbox password when the provider offers an <strong>app password</strong>. Enable two-factor authentication, then generate an app password in the provider's account security page.</li>
+                            <li>
+                                Official guides:
+                                <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">Google app passwords</a>,
+                                <a href="https://support.microsoft.com/en-us/accounts-billing/manage/how-to-get-and-use-app-passwords" target="_blank" rel="noopener">Microsoft app passwords</a>,
+                                <a href="https://support.apple.com/102654" target="_blank" rel="noopener">Apple app-specific passwords</a>.
+                            </li>
+                        </ul>
+
+                        <div class="settings-callout warning" style="margin-top: 14px;">
+                            Set the password on the machine that runs the backend, then restart
+                            it. The status at the top of this page changes to Configured.
+                        </div>
+                        <div class="env-command">$env:SMTP_PASSWORD = "provider-app-password"</div>
+
+                        <ul class="settings-help-list">
+                            <li>A plain <code>.env</code> file is not automatically loaded by this Maven/Spring Boot project.</li>
+                            <li>If Docker Compose or a startup script explicitly loads <code>.env</code>, keep it local and never commit it. The repository already ignores <code>.env</code> files.</li>
+                            <li>For normal local use, set the PowerShell environment variable in the same terminal before running <code>mvn spring-boot:run</code>.</li>
+                        </ul>
+                    </aside>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -894,6 +1161,8 @@
         let responseTimeTrendChart;
         let slaTrendChart;
         let ruleAlertsChart;
+        let emailPasswordConfigured = false;
+        let emailSettingsBusy = false;
 
         function esc(v) {
             return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -932,7 +1201,8 @@
             const title = {
                 dashboard: 'Alert Dashboard',
                 pending: 'Pending Alerts',
-                resolved: 'Resolved Alerts'
+                resolved: 'Resolved Alerts',
+                'email-settings': 'Email Notification Settings'
             }[page] || 'Alert Management';
             document.getElementById('page-title').textContent = title;
 
@@ -946,6 +1216,9 @@
                 }
                 if (page === 'pending') renderPending();
                 if (page === 'resolved') renderResolved();
+            }
+            if (page === 'email-settings') {
+                loadEmailSettings();
             }
         }
 
@@ -1780,6 +2053,166 @@
 
         function closeHistory() {
             document.getElementById('history-modal').classList.remove('open');
+        }
+
+        async function readApiError(response) {
+            try {
+                const body = await response.json();
+                if (body.error) return body.error;
+                const details = Object.values(body).filter(Boolean);
+                if (details.length) return details.join('; ');
+            } catch (ignored) {
+                // Fall back to the HTTP status below.
+            }
+            return `HTTP ${response.status}`;
+        }
+
+        function setEmailSettingsBusy(busy) {
+            emailSettingsBusy = busy;
+            document.querySelectorAll('#email-settings-form button').forEach(button => {
+                button.disabled = busy;
+            });
+            updateEmailPasswordState();
+        }
+
+        function updateEmailPasswordState() {
+            const pill = document.getElementById('email-password-state');
+            const authEnabled = document.getElementById('email-smtp-auth').checked;
+            if (!authEnabled) {
+                pill.textContent = 'Not required';
+                pill.className = 'password-pill ready';
+            } else if (emailPasswordConfigured) {
+                pill.textContent = 'Configured';
+                pill.className = 'password-pill ready';
+            } else {
+                pill.textContent = 'Missing';
+                pill.className = 'password-pill missing';
+            }
+            document.getElementById('email-test-button').disabled =
+                emailSettingsBusy || (authEnabled && !emailPasswordConfigured);
+        }
+
+        function syncRequiredTls() {
+            const enabled = document.getElementById('email-starttls-enabled');
+            const required = document.getElementById('email-starttls-required');
+            if (!enabled.checked) required.checked = false;
+            if (required.checked) enabled.checked = true;
+        }
+
+        function populateEmailSettings(settings) {
+            document.getElementById('email-enabled').checked = Boolean(settings.enabled);
+            document.getElementById('email-from').value = settings.fromAddress || '';
+            document.getElementById('email-to').value = settings.toAddress || '';
+            document.getElementById('email-smtp-host').value = settings.smtpHost || '';
+            document.getElementById('email-smtp-port').value = settings.smtpPort || 587;
+            document.getElementById('email-smtp-username').value = settings.smtpUsername || '';
+            document.getElementById('email-smtp-auth').checked = Boolean(settings.smtpAuth);
+            document.getElementById('email-starttls-enabled').checked =
+                Boolean(settings.starttlsEnabled);
+            document.getElementById('email-starttls-required').checked =
+                Boolean(settings.starttlsRequired);
+            document.getElementById('email-max-attempts').value =
+                settings.maxAttempts || 3;
+            document.getElementById('email-retry-delay').value =
+                Math.max(5, Math.round((settings.retryDelayMs || 60000) / 1000));
+            emailPasswordConfigured = Boolean(settings.passwordConfigured);
+
+            const updated = settings.updatedAt ? ` · updated ${settings.updatedAt}` : '';
+            document.getElementById('email-settings-source').textContent =
+                (settings.persisted ? 'Database settings' : 'Environment/default settings')
+                + updated;
+            syncRequiredTls();
+            updateEmailPasswordState();
+        }
+
+        async function loadEmailSettings() {
+            setEmailSettingsBusy(true);
+            try {
+                const response = await fetch(`${API}/admin/email-settings`);
+                if (!response.ok) throw new Error(await readApiError(response));
+                populateEmailSettings(await response.json());
+            } catch (error) {
+                showToast(`Failed to load email settings: ${error.message}`, 'error');
+            } finally {
+                setEmailSettingsBusy(false);
+            }
+        }
+
+        function collectEmailSettings() {
+            const form = document.getElementById('email-settings-form');
+            if (!form.reportValidity()) return null;
+
+            const smtpAuth = document.getElementById('email-smtp-auth').checked;
+            const smtpUsername =
+                document.getElementById('email-smtp-username').value.trim();
+            if (smtpAuth && !smtpUsername) {
+                showToast('SMTP username is required when authentication is enabled.', 'error');
+                document.getElementById('email-smtp-username').focus();
+                return null;
+            }
+
+            return {
+                enabled: document.getElementById('email-enabled').checked,
+                fromAddress: document.getElementById('email-from').value.trim(),
+                toAddress: document.getElementById('email-to').value.trim(),
+                smtpHost: document.getElementById('email-smtp-host').value.trim(),
+                smtpPort: Number(document.getElementById('email-smtp-port').value),
+                smtpUsername,
+                smtpAuth,
+                starttlsEnabled:
+                    document.getElementById('email-starttls-enabled').checked,
+                starttlsRequired:
+                    document.getElementById('email-starttls-required').checked,
+                maxAttempts:
+                    Number(document.getElementById('email-max-attempts').value),
+                retryDelayMs:
+                    Number(document.getElementById('email-retry-delay').value) * 1000
+            };
+        }
+
+        async function persistEmailSettings(showSuccess = true) {
+            const payload = collectEmailSettings();
+            if (!payload) return false;
+
+            setEmailSettingsBusy(true);
+            try {
+                const response = await fetch(`${API}/admin/email-settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(await readApiError(response));
+                populateEmailSettings(await response.json());
+                if (showSuccess) showToast('Email settings saved.', 'success');
+                return true;
+            } catch (error) {
+                showToast(`Failed to save email settings: ${error.message}`, 'error');
+                return false;
+            } finally {
+                setEmailSettingsBusy(false);
+            }
+        }
+
+        async function saveEmailSettings(event) {
+            event.preventDefault();
+            await persistEmailSettings(true);
+        }
+
+        async function sendTestEmail() {
+            if (!await persistEmailSettings(false)) return;
+            setEmailSettingsBusy(true);
+            try {
+                const response = await fetch(`${API}/admin/email-settings/test`, {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error(await readApiError(response));
+                const result = await response.json();
+                showToast(`Test email sent to ${result.recipient}.`, 'success');
+            } catch (error) {
+                showToast(`Test email failed: ${error.message}`, 'error');
+            } finally {
+                setEmailSettingsBusy(false);
+            }
         }
 
         async function loadAllAlerts(preferredPage) {
