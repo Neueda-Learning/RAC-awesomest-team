@@ -14,8 +14,16 @@ public enum TransactionType {
             throw new IllegalArgumentException("transactionType is required");
         }
 
+        String normalized = rawValue.trim().toUpperCase(Locale.ROOT);
+        if ("DEBIT".equals(normalized)) {
+            return TRANSFER_OUT;
+        }
+        if ("CREDIT".equals(normalized)) {
+            return DEPOSIT;
+        }
+
         try {
-            return TransactionType.valueOf(rawValue.trim().toUpperCase(Locale.ROOT));
+            return TransactionType.valueOf(normalized);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Unsupported transactionType: " + rawValue);
         }
@@ -33,4 +41,3 @@ public enum TransactionType {
         return this == SALARY || this == REFUND;
     }
 }
-
